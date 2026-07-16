@@ -381,6 +381,44 @@ function ficha:passar_turno_furia()
   return self.furia_turnos_restantes
 end
 
+-- ---- Frenesi (consequência da Fúria) --------------------------------------
+-- Versão MÍNIMA (ver sistemas.md > Fúria): quando o risco "dá", o lobisomem
+-- perde o CONTROLE por FRENESI_DURACAO_TURNOS — o jogo passa a agir por ele
+-- (ataca no automático; sem esquivar/fugir/habilidades). As versões ricas
+-- (atacar aliados, dizimar vilarejo) ficam pra quando existir esse conteúdo.
+
+ficha.FRENESI_DURACAO_TURNOS = 2
+
+-- Rola o risco de Frenesi pra um gasto `quanto` (usa risco_frenesi). Devolve
+-- true se o Frenesi DISPAROU. `rng` opcional (float [0,1)) pra testes. Só
+-- decide — NÃO entra em frenesi sozinho (quem chama narra e chama entrar_frenesi).
+function ficha:rolar_frenesi(quanto, rng)
+  local risco = self:risco_frenesi(quanto)
+  if risco <= 0 then return false end
+  local r = rng or math.random
+  return r() < risco
+end
+
+-- Entra em Frenesi (perde o controle por FRENESI_DURACAO_TURNOS turnos).
+function ficha:entrar_frenesi()
+  self.frenesi_turnos_restantes = ficha.FRENESI_DURACAO_TURNOS
+end
+
+-- Está em Frenesi agora (sem controle)?
+function ficha:em_frenesi()
+  return (self.frenesi_turnos_restantes or 0) > 0
+end
+
+-- Avança 1 turno de Frenesi. Devolve quantos turnos ainda restam (0 = recuperou
+-- o controle). Chamado uma vez por rodada, como passar_turno_furia.
+function ficha:passar_turno_frenesi()
+  if (self.frenesi_turnos_restantes or 0) <= 0 then
+    return 0
+  end
+  self.frenesi_turnos_restantes = self.frenesi_turnos_restantes - 1
+  return self.frenesi_turnos_restantes
+end
+
 -- ---- Força de Vontade -----------------------------------------------------
 
 -- Defesa mental: SEMPRE usa a base (o atributo cheio), estável. Gastar o pool

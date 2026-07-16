@@ -506,8 +506,10 @@ ainda ⚪), um sistema separado.
 
 ### Fúria (Lobisomem) — definido (qualitativamente; números ⚪)
 
-- **Recurso ativo, gasto em combate.** Ao gastar, buffa os próprios ataques e
-  concede turnos extras — quanto mais gasta de uma vez, maior o benefício.
+- **Recurso ativo, gasto em combate.** Ao gastar, buffa os próprios ataques
+  (dano/acerto/redução de dano) — quanto mais gasta de uma vez, maior o benefício.
+  (Cogitou-se dar turnos extras, mas foi DESCARTADO por balanceamento — turno extra
+  desequilibra combate por turnos; ver a decisão detalhada mais abaixo.)
 - **Risco: Frenesi.** Gastar Fúria SEMPRE tem chance de gerar Frenesi (nunca é
   100% seguro), e esse risco:
   - **sobe** com o quanto é gasto NUMA jogada só (gastar muito de uma vez é
@@ -531,21 +533,43 @@ ainda ⚪), um sistema separado.
   `risco = quanto_gasto / furia_atual` (antes do gasto), capado em 100%.
   Gastar tudo de uma vez sempre bate 100%. Já respeita as duas regras acima;
   ajustar depois de sentir jogando (tabela de probabilidade em `testes.lua`).
-- **Buff de ataque IMPLEMENTADO, versão PROVISÓRIA pra testar o recurso:**
-  no menu Habilidades (nas duas UIs) o jogador escolhe QUANTO gastar (1 até a
-  Fúria atual), e o buff ESCALA: **+3 de dano e -1 de acerto POR PONTO
-  gasto** no PRÓXIMO ataque só. Decisão deliberada (ver conversa de design):
-  gastar 1 é um empurrão seguro, gastar tudo é surto de força bruta com
-  Frenesi quase garantido — isso é o que diferencia Fúria de Sangue (que é
-  recurso controlado/administrado, sem essa aposta). **Sem turnos extras** —
-  decidido que o recurso só afeta dano/acerto, não ações extras.
-  Repare que o -1 de acerto por ponto também reduz a MARGEM (que entra no
-  dano total) — o efeito líquido costuma ser um pouco menor que o dano bruto
-  anunciado, e em ataques na borda pode até empurrar de "total" pra "parcial"
-  (dano pior). Isso é
-  intencional pela fórmula existente, não um erro — vale sentir jogando se
-  isso "sente" bem ou se precisa mudar. A checagem de Frenesi em si (rolar o
-  risco e narrar) ainda NÃO está plugada nas UIs — só o buff de dano/acerto.
+- **Buff de combate IMPLEMENTADO, versão PROVISÓRIA pra testar o recurso**
+  (menu Habilidades, nas duas UIs). O jogador escolhe um NÍVEL de 1 a
+  **`FURIA_GASTO_MAX` = 5** (teto por ativação — mesmo tendo mais de 5 de
+  Fúria sobrando, não dá pra gastar mais que 5 de uma vez). O custo em Fúria
+  é igual ao nível. **Dura `FURIA_DURACAO_TURNOS` = 3 turnos** (não é mais
+  "só o próximo ataque" — ativar de novo enquanto já ativo SUBSTITUI nível e
+  reinicia a duração, não acumula). **Sem turnos extras** — decidido que o
+  recurso só afeta dano/acerto/redução de dano, nunca ações a mais.
+  - **Tabela por nível, NÃO linear/cumulativa** (`ficha.FURIA_TABELA_DANO` /
+    `FURIA_TABELA_REDUCAO`):
+
+    | nível | dano  | acerto | dano tomado |
+    |-------|-------|--------|--------------|
+    | 1     | +3    | -1     | —            |
+    | 2     | +4    | -1     | —            |
+    | 3     | +5    | -1     | —            |
+    | 4     | +5    | -1     | -3           |
+    | 5     | +5    | -1     | -5           |
+
+    O acerto é sempre -1 (não escala). O dano trava em +5 a partir do nível 3
+    — o que os níveis 4 e 5 compram a mais é redução de dano TOMADO (tipo
+    armadura temporária: não muda se te acertam, só quanto dói), não mais
+    dano. É essa dualidade (ataque puro nos níveis baixos, ataque+defesa nos
+    altos) que diferencia Fúria de Sangue — Sangue é recurso
+    controlado/administrado (geração, disciplinas), Fúria é aposta com risco
+    real (Frenesi) e a decisão de "quanto arriscar" a cada ativação.
+  - O -1 de acerto reduz a MARGEM (que entra no dano total) — o efeito
+    líquido no dano geralmente é um pouco menor que o bônus bruto da tabela,
+    e em ataques na borda pode até empurrar de "total" pra "parcial" (pior).
+    Intencional pela fórmula existente, não um erro.
+  - **Frenesi IMPLEMENTADO (versão mínima), nas duas UIs.** Ao ativar Fúria,
+    rola-se o risco (`ficha:rolar_frenesi`, sobre a Fúria atual, ANTES do gasto).
+    Se disparar, o personagem **entra em Frenesi** (`entrar_frenesi`) e perde o
+    CONTROLE por `FRENESI_DURACAO_TURNOS` = 2 turnos: o jogo ataca no automático
+    (sem menu/esquiva/fuga) até passar. As versões ricas — atacar aliados, fugir,
+    dizimar vilarejo — ficam pra quando existir esse conteúdo (não há aliados nem
+    vilarejos jogáveis ainda).
 
 ### Umbra (Lobisomem) — definido (qualitativamente; números ⚪)
 

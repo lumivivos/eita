@@ -185,9 +185,29 @@ end
 
 -- Ativa o buff de Fúria (também consome o turno, igual transformar). A lista
 -- do submenu já garante saldo suficiente (só oferece 1..furia_atual).
+-- Rola o risco de Frenesi ANTES de gastar (fórmula usa a Fúria atual).
 local function usar_furia_jogador(quanto)
+  local surtou = jogo.jogador:rolar_frenesi(quanto)
   jogo.jogador:ativar_furia(quanto)
   logar("O Caos ferve sob sua pele. O próximo golpe será cru.")
+  if surtou then
+    jogo.jogador:entrar_frenesi()
+    logar("Mas algo se rompe. Você não comanda mais as próprias mãos.")
+  end
+  turno_do_inimigo(false)
+end
+
+-- FRENESI (versão mínima): sem controle. Um ataque automático por turno, sem
+-- menu/esquiva/fuga, até a fúria passar. Ver sistemas.md > Fúria.
+local function atacar_em_frenesi()
+  logar("A fúria toma seus músculos. Você avança sem querer avançar.")
+  local r = combate.atacar(jogo.jogador, jogo.inimigo, jogo.arma_jogador)
+  combate.aplicar(jogo.inimigo, r)
+  logar(frase("Você", "o bandido", r))
+  if not jogo.inimigo:vivo() then
+    jogo.acabou = "vitoria"; logar("O bandido tomba."); return
+  end
+  jogo.jogador:passar_turno_frenesi()
   turno_do_inimigo(false)
 end
 
@@ -219,6 +239,16 @@ function love.keypressed(tecla)
 
   if jogo.submenu then
     navegar_submenu(tecla)
+    return
+  end
+
+  -- FRENESI: sem menu. Enter/Espaço só avança o ataque automático.
+  if jogo.jogador:em_frenesi() then
+    if tecla == "return" or tecla == "space" then
+      atacar_em_frenesi()
+    elseif tecla == "escape" then
+      love.event.quit()
+    end
     return
   end
 
@@ -269,6 +299,9 @@ function love.draw()
     love.graphics.setColor(COR.destaque)
     local msg = ({ vitoria = "VITÓRIA", morte = "VOCÊ MORREU", fuga = "VOCÊ FUGIU" })[jogo.acabou]
     love.graphics.printf(msg .. "   (Esc para sair)", 0, 440, L, "center")
+  elseif jogo.jogador:em_frenesi() then
+    love.graphics.setColor(COR.inimigo)
+    love.graphics.printf("FRENESI — você não se controla. (Enter)", 0, 440, L, "center")
   elseif jogo.submenu then
     for i, nome in ipairs(jogo.submenu.opcoes) do
       local x = 56 + (i - 1) * 160

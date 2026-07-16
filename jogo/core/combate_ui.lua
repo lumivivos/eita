@@ -67,8 +67,15 @@ local function menu_habilidades(jogador)
   local id = acoes[escolha]
 
   if type(id) == "table" and id.furia then
+    -- Rola o risco de Frenesi ANTES de gastar (a fórmula usa a Fúria atual).
+    local surtou = jogador:rolar_frenesi(id.furia)
     jogador:ativar_furia(id.furia)  -- lista já garante saldo suficiente
     console.linha("    O Caos ferve sob sua pele. O próximo golpe será cru.")
+    if surtou then
+      jogador:entrar_frenesi()
+      console.linha("")
+      console.linha("    Mas algo se rompe. Você não comanda mais as próprias mãos.")
+    end
     console.linha("")
     return true
   end
@@ -133,19 +140,13 @@ function ui.lutar(jogador, inimigo, nomes, armas)
   while true do
     cabecalho(nomes, inimigo)
 
-    console.linha("    O que você faz?")
-    console.linha("")
-    local escolha = console.menu({ "Atacar", "Esquivar", "Fugir", "Habilidades" }, "      ")
-    console.linha("")
-
     local jogador_esquivou = false
     local turno_gasto = true   -- Habilidades pode não gastar o turno (se cancelar)
 
-    if escolha == 4 then
-      -- Submenu. Se cancelar (não consumir o turno), o inimigo NÃO age e o loop
-      -- reinicia — o jogador volta a escolher.
-      turno_gasto = menu_habilidades(jogador)
-    elseif escolha == 1 then
+    -- FRENESI: sem controle. O jogo ataca por você (não há menu, nem esquiva,
+    -- nem fuga). Ver sistemas.md > Fúria (versão mínima).
+    if jogador:em_frenesi() then
+      paragrafo("A fúria toma seus músculos. Você avança sem querer avançar.")
       local r = combate.atacar(jogador, inimigo, armas.jogador)
       combate.aplicar(inimigo, r)
       paragrafo(frase_ataque(nomes.jogador, nomes.inimigo, r))
@@ -156,22 +157,46 @@ function ui.lutar(jogador, inimigo, nomes, armas)
         console.pausar("    (Enter)")
         return "vitoria"
       end
-    elseif escolha == 2 then
-      local res = teste.atributo(jogador:attr("agilidade"), 4)
-      if res.passou then
-        jogador_esquivou = true
-        paragrafo("Você escorrega para as sombras. O próximo golpe cortará o vazio.")
-      else
-        paragrafo("Você tenta se esquivar, mas trava. Exposto.")
-      end
+      jogador:passar_turno_frenesi()
+      -- turno_gasto segue true; sem esquiva. Cai no turno do inimigo abaixo.
     else
-      local res = teste.atributo(jogador:attr("agilidade"), 5)
-      if res.passou then
-        paragrafo("Você rompe o cerco e desaparece na escuridão.")
-        console.pausar("    (Enter)")
-        return "fuga"
+      console.linha("    O que você faz?")
+      console.linha("")
+      local escolha = console.menu({ "Atacar", "Esquivar", "Fugir", "Habilidades" }, "      ")
+      console.linha("")
+
+      if escolha == 4 then
+        -- Submenu. Se cancelar (não consumir o turno), o inimigo NÃO age e o loop
+        -- reinicia — o jogador volta a escolher.
+        turno_gasto = menu_habilidades(jogador)
+      elseif escolha == 1 then
+        local r = combate.atacar(jogador, inimigo, armas.jogador)
+        combate.aplicar(inimigo, r)
+        paragrafo(frase_ataque(nomes.jogador, nomes.inimigo, r))
+        if not inimigo:vivo() then
+          console.linha(DIV)
+          console.linha("")
+          paragrafo(("%s tomba. Silêncio."):format(nomes.inimigo))
+          console.pausar("    (Enter)")
+          return "vitoria"
+        end
+      elseif escolha == 2 then
+        local res = teste.atributo(jogador:attr("agilidade"), 4)
+        if res.passou then
+          jogador_esquivou = true
+          paragrafo("Você escorrega para as sombras. O próximo golpe cortará o vazio.")
+        else
+          paragrafo("Você tenta se esquivar, mas trava. Exposto.")
+        end
       else
-        paragrafo("Você tenta fugir, mas ele corta seu caminho.")
+        local res = teste.atributo(jogador:attr("agilidade"), 5)
+        if res.passou then
+          paragrafo("Você rompe o cerco e desaparece na escuridão.")
+          console.pausar("    (Enter)")
+          return "fuga"
+        else
+          paragrafo("Você tenta fugir, mas ele corta seu caminho.")
+        end
       end
     end
 

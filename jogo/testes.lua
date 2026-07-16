@@ -280,6 +280,29 @@ do
   ok(humano:passar_turno_furia() == 0, "não deve dar erro em quem não tem Fúria")
 end
 
+titulo("Frenesi: disparo pelo risco e perda de controle por 2 turnos")
+do
+  local lobo = ficha.nova({}, "lobisomem")  -- Fúria 5
+  -- risco de gastar 1 = 1/5 = 0.2. rng que devolve 0.1 (<0.2) -> DISPARA.
+  ok(lobo:rolar_frenesi(1, function() return 0.1 end) == true, "rng 0.1 < risco 0.2 -> frenesi dispara")
+  -- rng 0.5 (>0.2) -> NÃO dispara.
+  ok(lobo:rolar_frenesi(1, function() return 0.5 end) == false, "rng 0.5 > risco 0.2 -> não dispara")
+  -- gastar tudo (5 de 5) = risco 100%: qualquer rng dispara.
+  ok(lobo:rolar_frenesi(5, function() return 0.99 end) == true, "gastar tudo -> risco 100%, sempre dispara")
+
+  -- Entrar em Frenesi: perde o controle por 2 turnos.
+  ok(not lobo:em_frenesi(), "não está em frenesi ainda")
+  lobo:entrar_frenesi()
+  ok(lobo:em_frenesi(), "entrou em frenesi")
+  ok(lobo:passar_turno_frenesi() == 1, "após 1 turno, resta 1")
+  ok(lobo:em_frenesi(), "ainda sem controle no 2º turno")
+  lobo:passar_turno_frenesi()
+  ok(not lobo:em_frenesi(), "recupera o controle após 2 turnos")
+
+  -- Quem não tem Fúria não entra em frenesi por gasto (risco 0).
+  ok(ficha.nova({}, "humano"):rolar_frenesi(1) == false, "humano nunca frenesi por Fúria")
+end
+
 titulo("combate: buff de Fúria do ATACANTE afeta dano/acerto; do ALVO reduz dano tomado")
 do
   local armas = require("data.armas")
