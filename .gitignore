@@ -22,3 +22,6 @@ saves/
 # --- Logs / temporários ---
 *.log
 tmp/
+
+# --- ferramentas locais (auto-commit etc.) ---
+.scripts/
