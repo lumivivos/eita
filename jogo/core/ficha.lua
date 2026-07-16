@@ -79,6 +79,14 @@ function ficha.nova(attrs, raca)
     -- Sonhos, permadeath).
     self.sonhos = ficha.SONHOS_INICIAL
     self.quebras = 0
+    -- Conceitos mágicos aprendidos (ids de data/conceitos.lua) e magias
+    -- fundidas a partir deles (ver seção Conceitos & Fusão adiante). Começam
+    -- vazios: o mago nasce sabendo NADA e escolhe o que aprender ao subir.
+    self.conceitos = {}          -- id_do_conceito -> true (conjunto)
+    self.magias_fundidas = {}    -- lista de magias criadas (ver magia.fundir)
+    -- Créditos de conceito ainda não gastos (ganha 1 a cada N níveis; ver
+    -- CONCEITO_A_CADA_N_NIVEIS). Escolher QUAL conceito é ação do jogador.
+    self.conceitos_pendentes = 0
   end
   self.pericias = {}   -- nome -> nível (sobem por uso; vazio no início)
   -- Nível de personagem (1..10, mesmo teto dos atributos). Sobe por EXP (raro).
@@ -147,6 +155,12 @@ function ficha:subir_nivel(attr_a, attr_b)
   self.atributos[attr_b] = self.atributos[attr_b] + 1
   self.nivel = self.nivel + 1
   self.niveis_pendentes = self.niveis_pendentes - 1
+  -- Mago: a cada N níveis, ganha um crédito pra aprender um conceito novo
+  -- (ver Conceitos & Fusão). Concedido AQUI, ao cruzar o nível, pra alinhar
+  -- com "subir de nível é um fenômeno" — descobrir uma nova verdade do mundo.
+  if self.raca == "mago" and self.nivel % ficha.CONCEITO_A_CADA_N_NIVEIS == 0 then
+    self.conceitos_pendentes = (self.conceitos_pendentes or 0) + 1
+  end
   return true
 end
 
@@ -520,6 +534,77 @@ end
 -- Bateu no teto de Quebras -> Cemitério dos Sonhos, permadeath (ver lore.md).
 function ficha:no_cemiterio_dos_sonhos()
   return (self.quebras or 0) >= ficha.QUEBRAS_MAX
+end
+
+-- ---- Conceitos & Fusão (mago — spellmaking) --------------------------------
+-- Ver sistemas.md > Conceitos & Fusão. O mago aprende CONCEITOS (tijolos de
+-- data/conceitos.lua), 1 crédito a cada N níveis, e FUNDE conceitos aprendidos
+-- em magias suas (core/magia.fundir faz a conta de custo/dif; aqui a ficha só
+-- guarda o que se sabe e o que se criou). Só mago tem isto.
+
+ficha.CONCEITO_A_CADA_N_NIVEIS = 2   -- 1 conceito novo a cada 2 níveis
+
+-- Já sabe este conceito?
+function ficha:conhece_conceito(id)
+  return self.conceitos ~= nil and self.conceitos[id] == true
+end
+
+-- Há crédito de conceito pra gastar (subiu de nível e ainda não escolheu)?
+function ficha:tem_conceito_pendente()
+  return (self.conceitos_pendentes or 0) > 0
+end
+
+-- Aprende um conceito, gastando um crédito pendente. Recusa (false + motivo)
+-- se a raça não for mago, se não houver crédito, ou se já souber o conceito.
+function ficha:aprender_conceito(id)
+  if not self.conceitos then
+    return false, "esta raça não aprende conceitos"
+  end
+  if not self:tem_conceito_pendente() then
+    return false, "sem crédito de conceito"
+  end
+  if self:conhece_conceito(id) then
+    return false, "já conhece este conceito"
+  end
+  self.conceitos[id] = true
+  self.conceitos_pendentes = self.conceitos_pendentes - 1
+  return true
+end
+
+-- Funde conceitos JÁ APRENDIDOS numa magia e a GUARDA na ficha. `ids` é uma
+-- lista de ids de conceitos; `nome` é o rótulo que o jogador dá à criação.
+-- `catalogo` é data/conceitos.lua (injetado pra manter a ficha sem dependência
+-- direta de data; a UI passa require("data.conceitos")). Recusa (nil + motivo)
+-- se a raça não funde, se a lista for vazia, ou se algum conceito não for
+-- conhecido. Delega o cálculo de custo/dif a core/magia.fundir.
+function ficha:fundir_magia(ids, nome, catalogo)
+  if not self.magias_fundidas then
+    return nil, "esta raça não funde magias"
+  end
+  if not ids or #ids == 0 then
+    return nil, "nenhum conceito escolhido"
+  end
+  local conceitos = {}
+  for _, id in ipairs(ids) do
+    if not self:conhece_conceito(id) then
+      return nil, "conceito não conhecido: " .. tostring(id)
+    end
+    local c = catalogo[id]
+    if not c then
+      return nil, "conceito inexistente no catálogo: " .. tostring(id)
+    end
+    -- Garante que o id viaja junto (magia.fundir usa c.id pra registrar a
+    -- composição), mesmo que o catálogo não o repita dentro da entrada.
+    c = { id = id, nome = c.nome, peso = c.peso, dif = c.dif, tags = c.tags }
+    conceitos[#conceitos + 1] = c
+  end
+  local magia = require("core.magia")
+  local nova, motivo = magia.fundir(conceitos, nome)
+  if not nova then
+    return nil, motivo
+  end
+  self.magias_fundidas[#self.magias_fundidas + 1] = nova
+  return nova
 end
 
 -- ---- Força de Vontade -----------------------------------------------------

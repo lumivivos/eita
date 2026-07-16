@@ -219,6 +219,90 @@ do
   ok(mago:quebras_atual() == r.quebras_ganhas, "ficha deve refletir as Quebras ganhas")
 end
 
+titulo("conceitos: mago aprende 1 a cada 2 níveis, gasta o crédito ao escolher")
+do
+  local mago = ficha.nova({}, "mago")
+  ok(mago:tem_conceito_pendente() == false, "mago nível 1 não tem crédito ainda")
+  ok(mago:conhece_conceito("atrito") == false, "nasce sem conceito nenhum")
+
+  -- Sobe pro nível 2 (múltiplo de 2 -> ganha 1 crédito).
+  mago:ganhar_exp(100)
+  mago:subir_nivel("inteligencia", "vontade")
+  ok(mago.nivel == 2, "subiu pro nível 2")
+  ok(mago:tem_conceito_pendente() == true, "nível 2 concede 1 crédito de conceito")
+
+  ok(mago:aprender_conceito("atrito") == true, "aprende gastando o crédito")
+  ok(mago:conhece_conceito("atrito") == true, "agora conhece o conceito")
+  ok(mago:tem_conceito_pendente() == false, "crédito consumido")
+  ok(select(1, mago:aprender_conceito("fogo")) == false, "sem crédito, não aprende outro")
+  ok(select(1, mago:aprender_conceito("atrito")) == false, "nem com crédito aprenderia repetido")
+
+  -- Nível 3 é ímpar -> NÃO concede crédito; nível 4 (par) -> concede.
+  mago:ganhar_exp(1000)
+  mago:subir_nivel("forca", "agilidade")  -- nv3
+  ok(mago:tem_conceito_pendente() == false, "nível 3 (ímpar) não concede crédito")
+  mago:subir_nivel("forca", "agilidade")  -- nv4
+  ok(mago:tem_conceito_pendente() == true, "nível 4 (par) concede outro crédito")
+
+  -- Só mago aprende conceitos.
+  local humano = ficha.nova({}, "humano")
+  ok(select(1, humano:aprender_conceito("atrito")) == false, "humano não aprende conceitos")
+end
+
+titulo("fusão: soma pesos->custo e difs->dif, com penalidade por conceito extra")
+do
+  -- Dois conceitos-tijolo de teste (formato de data/conceitos.lua).
+  local atrito = { id = "atrito", nome = "Atrito", peso = 2, dif = 3, tags = { "cinetico" } }
+  local acelerar = { id = "acelerar", nome = "Acelerar", peso = 3, dif = 4, tags = { "tempo", "cinetico" } }
+
+  -- Fusão de 1 conceito: sem penalidade (só o próprio peso/dif).
+  local m1 = magia.fundir({ atrito }, "Fricção")
+  ok(m1.custo == 2 and m1.dif == 3, "1 conceito: custo=peso, dif=dif, sem penalidade")
+
+  -- Fusão de 2 conceitos: soma + 1 de penalidade (1 conceito extra) em ambos.
+  local m2 = magia.fundir({ atrito, acelerar }, "Ignição por Fricção")
+  ok(m2.custo == 2 + 3 + 1, "2 conceitos: custo = Σpesos(5) + penalidade(1) = 6")
+  ok(m2.dif == 3 + 4 + 1, "2 conceitos: dif = Σdifs(7) + penalidade(1) = 8")
+  ok(#m2.conceitos == 2, "registra os 2 conceitos que a compõem")
+  ok(#m2.tags == 2, "tags únicas: cinetico, tempo (cinetico não duplica)")
+
+  -- Fundir nada é recusado.
+  ok(select(1, magia.fundir({})) == nil, "fundir lista vazia devolve nil")
+end
+
+titulo("fusão na ficha: só funde conceitos conhecidos e guarda a magia criada")
+do
+  local catalogo = {
+    atrito = { nome = "Manipular Atrito", peso = 2, dif = 3, tags = { "cinetico" } },
+    fogo = { nome = "Invocar Fogo", peso = 4, dif = 5, tags = { "elemental" } },
+  }
+  local mago = ficha.nova({}, "mago")
+  mago.conceitos_pendentes = 2
+  mago:aprender_conceito("atrito")
+  mago:aprender_conceito("fogo")
+
+  -- Tenta fundir um conceito que NÃO conhece -> recusa.
+  ok(select(1, mago:fundir_magia({ "gelo" }, "X", catalogo)) == nil,
+     "não funde conceito desconhecido")
+  ok(#mago.magias_fundidas == 0, "nada foi guardado na recusa")
+
+  -- Funde dois conhecidos -> guarda a magia.
+  local nova = mago:fundir_magia({ "atrito", "fogo" }, "Chama Cinética", catalogo)
+  ok(nova ~= nil, "funde conceitos conhecidos")
+  ok(nova.nome == "Chama Cinética", "guarda o nome que o jogador deu")
+  ok(nova.custo == 2 + 4 + 1, "custo derivado do catálogo (2+4+penalidade 1 = 7)")
+  ok(#mago.magias_fundidas == 1, "a magia criada foi guardada na ficha")
+
+  -- A magia fundida é conjurável pelo motor existente (mesmo formato).
+  mago:recarregar_sonhos(100)  -- Sonhos altos pra pagar o custo e passar
+  local r = magia.conjurar(mago, nova, rng_de_faces({3}))
+  ok(r.conjurou == true, "magia fundida entra em magia.conjurar como qualquer feitiço")
+
+  -- Humano não funde.
+  ok(select(1, ficha.nova({}, "humano"):fundir_magia({ "atrito" }, "X", catalogo)) == nil,
+     "humano não funde magias")
+end
+
 titulo("Fúria: risco de Frenesi sobe com o gasto, desce com a Fúria restante")
 do
   local lobo = ficha.nova({}, "lobisomem")  -- Fúria 5

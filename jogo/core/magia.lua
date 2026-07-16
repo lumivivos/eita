@@ -15,6 +15,63 @@ function magia.quebras_por_falha(custo_sonhos)
   return math.ceil(custo_sonhos / 5)
 end
 
+-- ---- Fusão de conceitos (spellmaking) --------------------------------------
+-- O mago funde CONCEITOS aprendidos (tijolos de data/conceitos.lua) numa magia
+-- sua (ver sistemas.md > Conceitos & Fusão). NÃO há escola de magia nem lista
+-- de feitiços: o único limite é ter os conceitos aprendidos e ter Sonhos pra
+-- pagar. Este é o único lugar que decide o custo/dif de uma magia — o resto do
+-- motor (magia.conjurar) trata a magia fundida igual a qualquer outra entrada.
+
+-- Penalidade por COMPLEXIDADE: fundir mais conceitos numa mesma magia é mais
+-- instável. O 1º conceito não penaliza; cada conceito ADICIONAL soma isto ao
+-- custo E à dif (provisório — afinar depois de jogar; ver sistemas.md).
+magia.PENALIDADE_POR_CONCEITO_EXTRA = 1
+
+-- Funde uma lista de conceitos (entradas de data/conceitos.lua, cada uma com
+-- `peso` e `dif`) numa magia. `nome` é opcional (rótulo que o jogador dá à sua
+-- criação). Devolve uma tabela no MESMO formato que magia.conjurar espera
+-- (`custo` + `dif`), mais metadados da fusão:
+--   {
+--     nome        = string,
+--     custo       = Σ pesos + penalidade de complexidade,
+--     dif         = Σ difs  + penalidade de complexidade,
+--     conceitos   = { ids... } (referência do que a compõe),
+--     tags        = { tags únicas de todos os conceitos },
+--   }
+-- Devolve nil + motivo se a lista estiver vazia (não dá pra fundir nada).
+function magia.fundir(conceitos, nome)
+  if not conceitos or #conceitos == 0 then
+    return nil, "nenhum conceito pra fundir"
+  end
+
+  local custo, dif = 0, 0
+  local ids, tags, tags_vistas = {}, {}, {}
+  for _, c in ipairs(conceitos) do
+    custo = custo + (c.peso or 0)
+    dif = dif + (c.dif or 0)
+    ids[#ids + 1] = c.id or c.nome
+    for _, t in ipairs(c.tags or {}) do
+      if not tags_vistas[t] then
+        tags_vistas[t] = true
+        tags[#tags + 1] = t
+      end
+    end
+  end
+
+  -- Cada conceito ALÉM do primeiro adiciona instabilidade (custo e dif).
+  local extras = (#conceitos - 1) * magia.PENALIDADE_POR_CONCEITO_EXTRA
+  custo = custo + extras
+  dif = dif + extras
+
+  return {
+    nome = nome or "Magia sem nome",
+    custo = custo,
+    dif = dif,
+    conceitos = ids,
+    tags = tags,
+  }
+end
+
 -- Conjura uma `feitico` (entrada de data/magias.lua — precisa de `custo` e
 -- `dif`) usando o `conjurador` (ficha de mago). `rng` opcional pra testes
 -- determinísticos.

@@ -646,6 +646,39 @@ feia, e quantas Quebras gerou (já aplicadas na ficha). `data/magias.lua` é o
 catálogo data-driven (`nome`, `custo`, `dif` por magia) — **propositalmente
 vazio**, o conteúdo das magias é criativo e fica por conta de quem escreve.
 
+### Conceitos & Fusão (Spellmaking) 🟢 (motor pronto; conceitos ⚪)
+
+Inspiração: a criação de magia de Morrowind — mas **mais livre**. O mago
+**não aprende feitiços prontos**: aprende **CONCEITOS** (verdades fundamentais
+do universo — "manipular o atrito", "endurecer a matéria"...) e, meditando,
+**FUNDE** conceitos numa magia sua. Feitiço = fusão. Isso é *criação*, não
+seleção — infinitamente combinável.
+
+- **Sem escola de magia.** Qualquer mago pode fundir qualquer coisa que tenha
+  aprendido. O único limite é: ter os conceitos + ter Sonhos pra pagar (e o
+  risco de Quebras se falhar feio). Nada de "escola de fogo/gelo".
+- **Conceitos são raros e permanentes.** O mago ganha **1 crédito de conceito
+  a cada 2 níveis** (`ficha.CONCEITO_A_CADA_N_NIVEIS`; só em nível par).
+  Escolher QUAL conceito aprender é decisão do jogador — cada escolha molda
+  quem ele é como mago ("cada coisa importa"). Nasce sabendo NADA.
+- **Conceito = tijolo com parâmetros** (`data/conceitos.lua`): cada um tem
+  `peso` (contribuição ao CUSTO em Sonhos) e `dif` (contribuição à DIFICULDADE
+  do teste), mais `tags` opcionais (categorias pra sinergias futuras).
+- **Fusão** (`core/magia.fundir`): soma os `peso`s → custo, soma os `dif`s →
+  dificuldade, e adiciona **+1 de instabilidade por conceito extra** (o 1º não
+  penaliza; fundir muita coisa é mais caro E mais difícil — cada tijolo a mais
+  desestabiliza). Devolve uma magia no MESMO formato que `magia.conjurar` já
+  entende — a magia fundida é conjurada como qualquer outra, com Sonhos/Quebras
+  ligados. O jogador dá o **nome** à criação.
+- **A magia fundida é SALVA na ficha** (`ficha.magias_fundidas` via
+  `ficha:fundir_magia`): medita uma vez, reconjura sempre. Recompensa
+  planejamento (acumular conceitos certos → criar a magia certa).
+- Só o mago tem conceitos/fusão. `data/conceitos.lua` está **propositalmente
+  vazio** — QUAIS são os ~10 conceitos é trabalho criativo de quem escreve; o
+  motor funciona com qualquer conceito que siga o formato.
+- **A definir ⚪:** se o ato de *meditar/fundir* custa algo (tempo/turno/foco).
+  Hoje é livre. Se quiser dar peso narrativo, é um ajuste pequeno.
+
 ## 6. Combate por Turnos  🟢 (esqueleto)
 
 Objetivo do protótipo: um combate MÍNIMO jogável — você e um inimigo alternando turnos.

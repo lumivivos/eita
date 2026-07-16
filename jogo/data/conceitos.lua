@@ -1,0 +1,29 @@
+-- data/conceitos.lua
+-- Catálogo de CONCEITOS mágicos — os "tijolos" que o mago aprende e depois
+-- funde em magias (ver sistemas.md > Sonhos & Quebras > Conceitos & Fusão).
+--
+-- O mago NÃO aprende feitiços prontos: ele aprende CONCEITOS (verdades
+-- fundamentais do universo — "manipular o atrito", "endurecer a matéria"...)
+-- e, meditando, FUNDE conceitos aprendidos numa magia sua. Feitiço = fusão.
+-- Aprender conceito é raro e permanente (1 escolha a cada 2 níveis; ver
+-- ficha.CONCEITO_A_CADA_N_NIVEIS) — cada escolha molda quem você é como mago.
+--
+-- Cada conceito é um TIJOLO com parâmetros. Quem funde soma esses parâmetros
+-- pra derivar o custo (em Sonhos) e a dificuldade da magia resultante — ver
+-- magia.fundir() em core/magia.lua. Formato de um conceito:
+--
+--   id_do_conceito = {
+--     nome      = "Manipular Atrito",   -- rótulo exibido
+--     peso      = 2,   -- contribuição ao CUSTO em Sonhos (quanto mais pesado
+--                      --   o conceito, mais caro sai qualquer magia com ele)
+--     dif       = 3,   -- contribuição à DIFICULDADE do teste de conjuração
+--     tags      = { "cinetico" },  -- (opcional) categorias pra sinergias/
+--                      --   restrições futuras; não afetam custo/dif por ora
+--     descricao = "…",  -- (opcional) texto de sabor pra a UI
+--   }
+--
+-- (Vazio de propósito — QUAIS são os ~10 conceitos é trabalho criativo, fica
+-- por conta de quem escreve. O motor de fusão já está pronto em core/magia.lua
+-- e funciona com qualquer conceito que siga o formato acima.)
+
+return {}
