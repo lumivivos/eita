@@ -14,7 +14,13 @@ package.path = package.path
 
 local ficha = require("core.ficha")
 local combate = require("core.combate")
+local teste = require("core.teste")
 local armas = require("data.armas")
+local formas = require("data.formas")
+
+-- As feras que um lobisomem pode assumir a partir da forma humana (mesma
+-- lista de core/combate_ui.lua, pra não haver duas fontes da verdade).
+local FORMAS_FERA = { "crino", "lupino", "bestial" }
 
 -- ---- Estado do jogo (mínimo, só pra provar a tela de combate) --------------
 local jogo = {}
@@ -34,7 +40,7 @@ local FONTE       -- fonte grande (texto)
 local FONTE_PEQ   -- fonte pequena (dicas)
 
 -- Ações do menu de combate.
-local ACOES = { "Atacar", "Esquivar", "Fugir" }
+local ACOES = { "Atacar", "Esquivar", "Fugir", "Habilidades" }
 
 function love.load()
   love.window.setTitle("ABERRAÇÃO")
@@ -54,6 +60,7 @@ function love.load()
   jogo.selecao = 1                  -- índice do menu de ações
   jogo.log = { "Um bandido se ergue diante de você." }  -- narração recente
   jogo.acabou = nil                 -- nil | "vitoria" | "morte" | "fuga"
+  jogo.submenu = nil                -- não-nil = dentro do submenu de Habilidades
 end
 
 -- Adiciona uma linha ao log (mantém as últimas 4).
@@ -80,9 +87,26 @@ local function frase(atacante, alvo, r)
   else return atacante .. " acerta " .. alvo .. " em cheio com " .. arma .. "!" end
 end
 
+-- Fecha um turno: o inimigo revida (a menos que o jogador tenha esquivado)
+-- e depois os dois regeneram (passiva de fim de turno, como no console).
+local function turno_do_inimigo(esquivou)
+  if not esquivou then
+    local ri = combate.atacar(jogo.inimigo, jogo.jogador, jogo.arma_inimigo)
+    combate.aplicar(jogo.jogador, ri)
+    logar(frase("O bandido", "você", ri))
+    if not jogo.jogador:vivo() then jogo.acabou = "morte"; logar("Tudo escurece."); return end
+  end
+  jogo.inimigo:regenerar_turno()
+  jogo.jogador:regenerar_turno()
+end
+
 -- Executa um turno completo (jogador age -> inimigo revida).
+-- Esquivar/Fugir usam a mesma fórmula de teste do console (core/teste.lua),
+-- pra não haver dois comportamentos diferentes pra mesma ação.
 local function turno_jogador(acao)
   if jogo.acabou then return end
+
+  local esquivou = false
 
   if acao == "Atacar" then
     local r = combate.atacar(jogo.jogador, jogo.inimigo, jogo.arma_jogador)
@@ -90,18 +114,73 @@ local function turno_jogador(acao)
     logar(frase("Você", "o bandido", r))
     if not jogo.inimigo:vivo() then jogo.acabou = "vitoria"; logar("O bandido tomba."); return end
   elseif acao == "Fugir" then
-    logar("Você tenta fugir...")
-    jogo.acabou = "fuga"; return
-  else
-    logar("Você se prepara para desviar.")
+    local res = teste.atributo(jogo.jogador:attr("agilidade"), 5)
+    if res.passou then
+      logar("Você rompe o cerco e desaparece.")
+      jogo.acabou = "fuga"; return
+    else
+      logar("Você tenta fugir, mas ele corta seu caminho.")
+    end
+  else -- Esquivar
+    local res = teste.atributo(jogo.jogador:attr("agilidade"), 4)
+    if res.passou then
+      esquivou = true
+      logar("Você escorrega para as sombras.")
+    else
+      logar("Você tenta se esquivar, mas trava. Exposto.")
+    end
   end
 
-  -- Turno do inimigo.
-  local ri = combate.atacar(jogo.inimigo, jogo.jogador, jogo.arma_inimigo)
-  combate.aplicar(jogo.jogador, ri)
-  logar(frase("O bandido", "você", ri))
-  jogo.jogador:regenerar_turno()
-  if not jogo.jogador:vivo() then jogo.acabou = "morte"; logar("Tudo escurece.") end
+  turno_do_inimigo(esquivou)
+end
+
+-- Monta as opções do submenu "Habilidades" pro estado atual (mesma regra de
+-- core/combate_ui.lua: só o lobisomem tem conteúdo aqui, por ora).
+local function abrir_habilidades()
+  local opcoes, acoes = {}, {}
+  if jogo.jogador.raca == "lobisomem" then
+    if jogo.jogador:eh_humanoide() then
+      for _, id in ipairs(FORMAS_FERA) do
+        table.insert(opcoes, formas[id].nome)
+        table.insert(acoes, id)
+      end
+    else
+      table.insert(opcoes, formas.humanoide.nome)
+      table.insert(acoes, "humanoide")
+    end
+  end
+
+  if #opcoes == 0 then
+    logar("Você não tem nenhuma habilidade a usar agora.")
+    return
+  end
+
+  table.insert(opcoes, "Voltar")
+  jogo.submenu = { opcoes = opcoes, acoes = acoes, selecao = 1 }
+end
+
+-- Assumir uma forma consome o turno (o inimigo revida em seguida), igual à
+-- versão console.
+local function transformar_jogador(id_forma)
+  jogo.jogador:transformar(id_forma)
+  logar(formas[id_forma].descricao)
+  turno_do_inimigo(false)
+end
+
+local function navegar_submenu(tecla)
+  local n = #jogo.submenu.opcoes
+  if tecla == "up" then
+    jogo.submenu.selecao = (jogo.submenu.selecao - 2) % n + 1
+  elseif tecla == "down" then
+    jogo.submenu.selecao = jogo.submenu.selecao % n + 1
+  elseif tecla == "escape" then
+    jogo.submenu = nil  -- cancela, não consome o turno
+  elseif tecla == "return" or tecla == "space" then
+    local i = jogo.submenu.selecao
+    local id = jogo.submenu.acoes[i]
+    jogo.submenu = nil
+    if id then transformar_jogador(id) end  -- nil = "Voltar", não consome o turno
+  end
 end
 
 function love.keypressed(tecla)
@@ -109,12 +188,23 @@ function love.keypressed(tecla)
     if tecla == "escape" then love.event.quit() end
     return
   end
+
+  if jogo.submenu then
+    navegar_submenu(tecla)
+    return
+  end
+
   if tecla == "up" then
     jogo.selecao = (jogo.selecao - 2) % #ACOES + 1
   elseif tecla == "down" then
     jogo.selecao = jogo.selecao % #ACOES + 1
   elseif tecla == "return" or tecla == "space" then
-    turno_jogador(ACOES[jogo.selecao])
+    local acao = ACOES[jogo.selecao]
+    if acao == "Habilidades" then
+      abrir_habilidades()
+    else
+      turno_jogador(acao)
+    end
   elseif tecla == "escape" then
     love.event.quit()
   end
@@ -145,12 +235,23 @@ function love.draw()
     love.graphics.print(linha, 56, 320 + (i - 1) * 22)
   end
 
-  -- Menu de ações (ou desfecho).
+  -- Menu de ações (ou submenu de Habilidades, ou desfecho).
   love.graphics.setFont(FONTE)
   if jogo.acabou then
     love.graphics.setColor(COR.destaque)
     local msg = ({ vitoria = "VITÓRIA", morte = "VOCÊ MORREU", fuga = "VOCÊ FUGIU" })[jogo.acabou]
     love.graphics.printf(msg .. "   (Esc para sair)", 0, 440, L, "center")
+  elseif jogo.submenu then
+    for i, nome in ipairs(jogo.submenu.opcoes) do
+      local x = 56 + (i - 1) * 160
+      if i == jogo.submenu.selecao then
+        love.graphics.setColor(COR.destaque)
+        love.graphics.print("> " .. nome, x, 440)
+      else
+        love.graphics.setColor(COR.texto)
+        love.graphics.print("  " .. nome, x, 440)
+      end
+    end
   else
     for i, a in ipairs(ACOES) do
       local x = 56 + (i - 1) * 160

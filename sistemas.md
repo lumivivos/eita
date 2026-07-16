@@ -466,7 +466,9 @@ Regras dos empates (ambos os limiares são "estritamente maior"):
 - Liga o dano ao personagem (um forte bate muito mais forte com a mesma arma).
 - A margem adiciona imprevisibilidade (raspão vs. golpe perfeito) — evita o "5 de dano
   todo turno".
-- (Dano PARCIAL usa um valor bem reduzido — a definir a fórmula exata do parcial.)
+- **Dano PARCIAL (implementado):** `floor((dano_base + atributo + bonus_forma) * 0.25)`,
+  mínimo 1 (sem a margem — é um golpe raso, não escala com o quanto passou da diff).
+  Constante em `core/combate.lua` (`FRACAO_PARCIAL`).
 
 ### HP e regeneração
 - **HP = base_da_raça + (Vitalidade × 2).** Base padrão **10**; o **lobisomem** é mais
@@ -487,8 +489,12 @@ Regras dos empates (ambos os limiares são "estritamente maior"):
   fica. Precisa ser cirúrgico: evitar dano, não trocar golpes. Sua única "cura" é a
   habilidade **Medicina** (Inteligência) — a via humana e trabalhosa de se tratar.
 
-A definir: dano exato do PARCIAL; efeito de "Esquivar"; ritmo/taxa da regeneração; lista
-de armas (dano base + diff secreta + atributo de cada).
+**Esquivar (implementado):** teste de Agilidade (dificuldade 4, `core/teste.lua`); se
+passa, cancela o contra-ataque do inimigo naquele turno (`combate_ui.lua`).
+
+A definir: ritmo/taxa exata de recarga da regeneração fora do combate; lista completa
+de armas (dano base + diff secreta + atributo de cada) além do que já existe em
+`data/armas.lua`.
 
 ## 6.5. Formas do Lobisomem  🟡 (esqueleto no menu "Habilidades")
 
