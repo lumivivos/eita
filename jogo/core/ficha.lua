@@ -61,6 +61,12 @@ function ficha.nova(attrs, raca)
   --   base  = atributo "vontade" -> resistência mental (estável, é o máximo)
   --   pool  = pontos gastáveis pra rerrolar; começa cheio (= base)
   self.vontade_pool = self.atributos.vontade
+  -- Fúria (só lobisomem; ver sistemas.md > Recursos por Raça > Fúria).
+  -- Diferente de Vontade: não tem base/pool separados, o valor É o gasto
+  -- (como o Sangue do vampiro). nil pras demais raças (não tem Fúria).
+  if self.raca == "lobisomem" then
+    self.furia = ficha.FURIA_INICIAL
+  end
   self.pericias = {}   -- nome -> nível (sobem por uso; vazio no início)
   -- Nível de personagem (1..10, mesmo teto dos atributos). Sobe por EXP (raro).
   self.nivel = attrs.nivel or 1
@@ -249,6 +255,130 @@ end
 function ficha:bonus_acerto_forma()
   local f = self:forma_atual()
   return (f and f.bonus_acerto) or 0
+end
+
+-- ---- Fúria (lobisomem) -----------------------------------------------------
+-- Recurso ativo gasto em combate (ver sistemas.md > Recursos por Raça >
+-- Fúria). Ativar dá um buff de N turnos (dano/acerto sempre; redução de dano
+-- tomado só nos níveis mais altos) à custa de RISCO DE FRENESI: quanto mais
+-- você gasta de uma vez e quanto MENOS Fúria sobra, mais perigoso. Começa em
+-- 5, teto 10 (mas só dá pra gastar até FURIA_GASTO_MAX por ativação, mesmo
+-- tendo mais que isso sobrando). Recarrega em lua cheia / momentos de
+-- estresse (dano crítico etc.) / a cada novo dia — gatilhos concretos ainda
+-- não existem no motor (não há calendário/lua ainda), por isso só a função
+-- de recarregar está pronta, sem ninguém chamando-a automaticamente ainda.
+-- SEM TURNOS EXTRAS — decisão de design: o recurso só afeta dano/acerto/
+-- redução de dano, nunca ações a mais por turno.
+
+ficha.FURIA_INICIAL = 5
+ficha.FURIA_MAX = 10
+ficha.FURIA_GASTO_MAX = 5   -- teto de quanto gastar POR ATIVAÇÃO (não é o teto da Fúria)
+ficha.FURIA_DURACAO_TURNOS = 3
+
+-- Tabela de nível (1..5) -> bônus de dano. NÃO é linear/cumulativa: cada
+-- nível tem seu próprio valor fixo, e 4/5 ficam travados no valor do 3
+-- (não continuam somando dano) — o que eles ganham a mais é redução de dano
+-- tomado, não mais dano (ver FURIA_TABELA_REDUCAO).
+ficha.FURIA_TABELA_DANO = { [1] = 3, [2] = 4, [3] = 5, [4] = 5, [5] = 5 }
+
+-- Redução de dano TOMADO (tipo armadura temporária — não afeta chance de ser
+-- acertado, só quanto dói) nos níveis 4 e 5. 1..3 não reduzem nada.
+ficha.FURIA_TABELA_REDUCAO = { [4] = 3, [5] = 5 }
+
+-- Quanto de Fúria resta (nil se a raça não tem Fúria — só lobisomem tem).
+function ficha:furia_atual()
+  return self.furia
+end
+
+-- Gasta `quanto` de Fúria. Recusa (devolve false) se a raça não tiver Fúria
+-- ou não houver saldo suficiente — nunca deixa negativo.
+function ficha:gastar_furia(quanto)
+  if not self.furia or not quanto or quanto <= 0 or quanto > self.furia then
+    return false
+  end
+  self.furia = self.furia - quanto
+  return true
+end
+
+-- Restaura Fúria (nunca passa do teto). Quem chama decide o motivo e a
+-- quantidade (lua cheia, dano crítico, novo dia — ver sistemas.md).
+function ficha:recarregar_furia(quanto)
+  if not self.furia then return nil end
+  self.furia = math.min(ficha.FURIA_MAX, self.furia + (quanto or 0))
+  return self.furia
+end
+
+-- Risco de Frenesi (0..1) ao gastar `quanto` de Fúria, calculado ANTES do
+-- gasto acontecer de fato (chame isto pra decidir/avisar, depois gastar_furia
+-- pra efetivar). PROVISÓRIO — fórmula simples que já respeita as duas regras
+-- de design confirmadas: sobe com o quanto se gasta de uma vez, desce quanto
+-- mais Fúria total o personagem tem. `risco = quanto / furia_atual`, ou seja,
+-- gastar TUDO de uma vez (quanto == furia atual) sempre bate 100%. Ajustar a
+-- fórmula depois de jogar umas lutas de teste (ver tabela em testes.lua).
+function ficha:risco_frenesi(quanto)
+  if not self.furia or not quanto or quanto <= 0 or self.furia <= 0 then
+    return 0
+  end
+  return math.min(1, quanto / self.furia)
+end
+
+-- Ativa o buff de Fúria por FURIA_DURACAO_TURNOS turnos (versão PROVISÓRIA —
+-- ver sistemas.md > Fúria). `quanto` é o NÍVEL (1..5, teto FURIA_GASTO_MAX
+-- independente de quanta Fúria total o personagem tenha) e também é o custo
+-- em Fúria gasta. Gastar 1 = empurrãozinho seguro; gastar tudo de uma vez =
+-- surto de força bruta com Frenesi quase garantido (ver risco_frenesi). Se
+-- não tiver saldo ou passar do teto de gasto, não ativa (devolve false).
+-- Reativar enquanto já está ativo SUBSTITUI o nível e reinicia a duração
+-- (não acumula/estende).
+function ficha:ativar_furia(quanto)
+  if not quanto or quanto > ficha.FURIA_GASTO_MAX then
+    return false
+  end
+  if not self:gastar_furia(quanto) then
+    return false
+  end
+  self.furia_nivel = quanto
+  self.furia_turnos_restantes = ficha.FURIA_DURACAO_TURNOS
+  return true
+end
+
+-- O buff de Fúria está ativo agora?
+function ficha:furia_buff_ativo()
+  return (self.furia_turnos_restantes or 0) > 0
+end
+
+-- Bônus de ACERTO do buff de Fúria (provisório: -1 fixo enquanto ativo,
+-- não escala por nível).
+function ficha:bonus_acerto_furia()
+  return self:furia_buff_ativo() and -1 or 0
+end
+
+-- Bônus de DANO do buff de Fúria (provisório: ver FURIA_TABELA_DANO).
+function ficha:bonus_dano_furia()
+  if not self:furia_buff_ativo() then return 0 end
+  return ficha.FURIA_TABELA_DANO[self.furia_nivel] or 0
+end
+
+-- Redução de dano TOMADO pelo buff de Fúria (provisório: ver
+-- FURIA_TABELA_REDUCAO — só níveis 4 e 5 reduzem algo).
+function ficha:bonus_reducao_dano_furia()
+  if not self:furia_buff_ativo() then return 0 end
+  return ficha.FURIA_TABELA_REDUCAO[self.furia_nivel] or 0
+end
+
+-- Avança 1 turno na duração do buff de Fúria (quem chama decide QUANDO um
+-- "turno" termina — ver core/combate_ui.lua e jogo2d/main.lua, chamado uma
+-- vez por rodada de combate). Sem efeito se não houver buff ativo. Devolve
+-- quantos turnos restam.
+function ficha:passar_turno_furia()
+  if (self.furia_turnos_restantes or 0) <= 0 then
+    return 0
+  end
+  self.furia_turnos_restantes = self.furia_turnos_restantes - 1
+  if self.furia_turnos_restantes <= 0 then
+    self.furia_nivel = nil
+  end
+  return self.furia_turnos_restantes
 end
 
 -- ---- Força de Vontade -----------------------------------------------------

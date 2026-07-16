@@ -98,6 +98,10 @@ local function turno_do_inimigo(esquivou)
   end
   jogo.inimigo:regenerar_turno()
   jogo.jogador:regenerar_turno()
+  -- Duração do buff de Fúria (3 turnos; ver ficha:passar_turno_furia).
+  -- No-op pra quem não tem Fúria ativa (a maioria).
+  jogo.inimigo:passar_turno_furia()
+  jogo.jogador:passar_turno_furia()
 end
 
 -- Executa um turno completo (jogador age -> inimigo revida).
@@ -148,6 +152,18 @@ local function abrir_habilidades()
       table.insert(opcoes, formas.humanoide.nome)
       table.insert(acoes, "humanoide")
     end
+    -- Fúria: uma opção por nível possível (1..FURIA_GASTO_MAX, limitado pelo
+    -- quanto o jogador realmente tem). Dura FURIA_DURACAO_TURNOS turnos.
+    -- Gastar tudo de uma vez é sempre 100% de risco de Frenesi (ver
+    -- ficha:risco_frenesi).
+    local teto_gasto = math.min(ficha.FURIA_GASTO_MAX, jogo.jogador:furia_atual() or 0)
+    for q = 1, teto_gasto do
+      local reducao = ficha.FURIA_TABELA_REDUCAO[q]
+      local extra = reducao and string.format(", -%d dano tomado", reducao) or ""
+      table.insert(opcoes, string.format("Fúria: gastar %d (%d turnos, +%d dano, -1 acerto%s)",
+        q, ficha.FURIA_DURACAO_TURNOS, ficha.FURIA_TABELA_DANO[q], extra))
+      table.insert(acoes, { furia = q })
+    end
   end
 
   if #opcoes == 0 then
@@ -167,6 +183,14 @@ local function transformar_jogador(id_forma)
   turno_do_inimigo(false)
 end
 
+-- Ativa o buff de Fúria (também consome o turno, igual transformar). A lista
+-- do submenu já garante saldo suficiente (só oferece 1..furia_atual).
+local function usar_furia_jogador(quanto)
+  jogo.jogador:ativar_furia(quanto)
+  logar("O Caos ferve sob sua pele. O próximo golpe será cru.")
+  turno_do_inimigo(false)
+end
+
 local function navegar_submenu(tecla)
   local n = #jogo.submenu.opcoes
   if tecla == "up" then
@@ -179,7 +203,11 @@ local function navegar_submenu(tecla)
     local i = jogo.submenu.selecao
     local id = jogo.submenu.acoes[i]
     jogo.submenu = nil
-    if id then transformar_jogador(id) end  -- nil = "Voltar", não consome o turno
+    if type(id) == "table" and id.furia then
+      usar_furia_jogador(id.furia)
+    elseif id then
+      transformar_jogador(id)  -- nil = "Voltar", não consome o turno
+    end
   end
 end
 

@@ -8,6 +8,7 @@ local console = require("util.console")
 local combate = require("core.combate")
 local teste = require("core.teste")
 local formas = require("data.formas")
+local ficha = require("core.ficha")
 
 local ui = {}
 
@@ -15,8 +16,8 @@ local ui = {}
 local FORMAS_FERA = { "crino", "lupino", "bestial" }
 
 -- Submenu "Habilidades" do combate. Por ora só o lobisomem tem conteúdo
--- (transformação). Retorna true se consumiu o turno, false se cancelou.
--- (Esqueleto: transformar só troca o estado; sem efeito mecânico ainda.)
+-- (transformação + o buff provisório de Fúria). Retorna true se consumiu o
+-- turno, false se cancelou.
 local function menu_habilidades(jogador)
   -- Monta as opções conforme o estado atual.
   local opcoes, acoes = {}, {}
@@ -32,6 +33,18 @@ local function menu_habilidades(jogador)
       -- Já transformado: única opção é voltar a humano.
       table.insert(opcoes, formas.humanoide.nome)
       table.insert(acoes, "humanoide")
+    end
+    -- Fúria: uma opção por nível possível (1..FURIA_GASTO_MAX, limitado pelo
+    -- quanto o jogador realmente tem). Dura FURIA_DURACAO_TURNOS turnos.
+    -- Gastar tudo de uma vez é sempre 100% de risco de Frenesi (ver
+    -- ficha:risco_frenesi).
+    local teto_gasto = math.min(ficha.FURIA_GASTO_MAX, jogador:furia_atual() or 0)
+    for q = 1, teto_gasto do
+      local reducao = ficha.FURIA_TABELA_REDUCAO[q]
+      local extra = reducao and string.format(", -%d dano tomado", reducao) or ""
+      table.insert(opcoes, string.format("Fúria: gastar %d (%d turnos, +%d dano, -1 acerto%s)",
+        q, ficha.FURIA_DURACAO_TURNOS, ficha.FURIA_TABELA_DANO[q], extra))
+      table.insert(acoes, { furia = q })
     end
   end
 
@@ -52,6 +65,14 @@ local function menu_habilidades(jogador)
   end
 
   local id = acoes[escolha]
+
+  if type(id) == "table" and id.furia then
+    jogador:ativar_furia(id.furia)  -- lista já garante saldo suficiente
+    console.linha("    O Caos ferve sob sua pele. O próximo golpe será cru.")
+    console.linha("")
+    return true
+  end
+
   jogador:transformar(id)
   console.linha("    " .. formas[id].descricao)
   console.linha("")
@@ -176,6 +197,11 @@ function ui.lutar(jogador, inimigo, nomes, armas)
       if curou > 0 then
         paragrafo("Suas feridas se fecham sozinhas — a carne costura a carne.")
       end
+
+      -- Duração do buff de Fúria (3 turnos; ver ficha:passar_turno_furia).
+      -- No-op pra quem não tem Fúria ativa (a maioria).
+      inimigo:passar_turno_furia()
+      jogador:passar_turno_furia()
 
       console.linha(DIV)
       console.pausar("    (Enter para continuar)")

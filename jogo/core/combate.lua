@@ -32,7 +32,12 @@ function combate.atacar(atacante, alvo, arma, rng)
   -- Bônus de forma (0 pra quem não transforma). Acerto soma no teste; dano no dano.
   local acerto_forma = atacante.bonus_acerto_forma and atacante:bonus_acerto_forma() or 0
   local bonus_forma = atacante.bonus_dano_forma and atacante:bonus_dano_forma() or 0
-  local ataque = atributo + pericia + bonus + acerto_forma
+  -- Bônus do buff de Fúria do ATACANTE (provisório; ver ficha:ativar_furia).
+  -- Dura vários turnos — quem decrementa é ficha:passar_turno_furia(),
+  -- chamado uma vez por rodada pela UI, não aqui (isto só LÊ, não consome).
+  local acerto_furia = atacante.bonus_acerto_furia and atacante:bonus_acerto_furia() or 0
+  local bonus_furia = atacante.bonus_dano_furia and atacante:bonus_dano_furia() or 0
+  local ataque = atributo + pericia + bonus + acerto_forma + acerto_furia
   local defesa = alvo:defesa()
 
   local resultado = {
@@ -51,13 +56,21 @@ function combate.atacar(atacante, alvo, arma, rng)
   elseif ataque <= defesa then
     -- Passou da arma mas não da defesa: bloqueio, dano muito reduzido.
     resultado.tipo = "parcial"
-    local cheio = arma.base + atributo + bonus_forma   -- (sem margem)
+    local cheio = arma.base + atributo + bonus_forma + bonus_furia   -- (sem margem)
     resultado.dano = math.max(1, math.floor(cheio * combate.FRACAO_PARCIAL))
   else
     -- Superou a defesa: acerto total, dano escala com a margem.
     resultado.tipo = "total"
     local margem = ataque - defesa
-    resultado.dano = arma.base + margem + atributo + bonus_forma
+    resultado.dano = arma.base + margem + atributo + bonus_forma + bonus_furia
+  end
+
+  -- Redução de dano TOMADO pelo buff de Fúria do ALVO (níveis 4/5; ver
+  -- ficha:bonus_reducao_dano_furia). É tipo armadura: não muda se acertou,
+  -- só quanto dói. Nunca deixa o dano negativo.
+  if resultado.tipo ~= "erro" then
+    local reducao = alvo.bonus_reducao_dano_furia and alvo:bonus_reducao_dano_furia() or 0
+    resultado.dano = math.max(0, resultado.dano - reducao)
   end
 
   return resultado

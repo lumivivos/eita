@@ -422,8 +422,169 @@ Categorias fechadas para o protótipo. **A definir por habilidade:** o atributo-
 está dado pela categoria; falta o *grind* (usos→nível) de cada uma — definido manualmente,
 varia por habilidade (ex.: Intimidação rápida; Esgrima lenta).
 
-## 5. Recursos por Raça  ⚪
-_(ex.: Sangue pra vampiro, o preço da realidade pro mago) — a definir._
+## 5. Recursos por Raça  🟡 (em construção, um par por vez)
+
+Cada raça/existência sobrenatural tem um **par recurso & preço** (ver seção 4,
+Atributos secundários) — o recurso é o que você gasta pra fazer coisas, o preço
+é o que acumula como consequência. Os pares:
+
+- 🩸 Vampiro — **Sangue & Humanidade**
+- 🐺 Lobisomem — **Fúria & Umbra**
+- 🌌 Mago — **Sonhos & Quebras**
+- 👹 Abominação — **Ego & Corrupção**
+
+**Escala do lado "recurso" (Sangue, Sonhos, Fúria, Ego):** mesma régua 0–10 dos
+atributos gerais, MAS com um teto que pode ser menor que 10 dependendo do
+indivíduo (ex.: um vampiro de geração baixa/"ralé" pode ter Sangue máximo 2,
+não 10 — o teto varia por geração/linhagem, não é fixo pra raça inteira).
+Exceção: **Ego não segue essa lógica.** Não é treinado nem tem teto variável —
+todo Abominação **começa direto no 10** (é o poder mais forte que existe; não
+faz sentido ele "subir").
+
+### Ego & Corrupção (Abominação) — definido
+
+- **Ego fixo em 10.** Não sobe por uso nem por nível; nasce no teto.
+- **Usar o poder do Ego sobe Corrupção.** Mecanicamente, **custo fixo por uso**
+  (a lore explica o preço como proporcional ao tamanho do que você nega ao
+  destino, mas por gameplay foi simplificado pra um custo fixo — mais simples
+  de balancear).
+- **Corrupção é estritamente uma via — nunca desce.** Não existe cura,
+  redenção ou reset. É um relógio que só anda pra frente.
+- **Corrupção atinge 10 → morte permanente, total, sem volta.** Narrativamente
+  é a fábula do personagem sendo apagada até a origem — a ponto de ele nunca
+  ter existido. Não é "game over" comum: é permadeath de verdade (ver lore.md
+  > Abominação/Ego).
+
+### Humanidade — definido
+
+**Todo ser TEM um valor de Humanidade** (0–10), mas ela só importa
+mecanicamente de dois jeitos:
+1. **Pro vampiro**, é o recurso-preço de verdade — afeta como ele joga (ver
+   abaixo).
+2. **Pra qualquer um** (humano, vampiro, mago, lobisomem...), é o número
+   escondido que checa a elegibilidade ao poder **Sagrado** ao chegar em 10
+   (ver `lore.md`: fé verdadeira e intensa gera Sagrado, independente de
+   raça/religião — Humanidade 10 é a condição pra isso acontecer).
+
+Pras raças que não são vampiro, Humanidade não gera os efeitos sociais abaixo
+— quem cuida da vida social/percepção alheia delas é a **Reputação** (seção 7,
+ainda ⚪), um sistema separado.
+
+**Efeitos abaixo valem só pro VAMPIRO:**
+- **Vampiro jogador começa em 7** no momento do Abraço. Antes disso, como
+  humano, ações da campanha já podem subir ou descer esse valor — o Abraço não
+  reseta pra um número fixo do nada, 7 é só o ponto de partida assumido pro
+  protótipo.
+- **Desce por:** diablerizar (**-1 fixo, permanente**, todo diablerie custa
+  isso não importa o resto), matar sem motivo, e ações maldosas em geral
+  (acumula tipo um contador — ex.: roubar também conta).
+- **Sobe por:** age bondosamente (não detalhado ainda quanto/quais ações
+  específicas contam — a definir quando a campanha for escrita).
+- **Efeito gradual, narrativo (não é um "game over" ao zerar):** quanto mais
+  baixa, menos empático o vampiro fica, mais distante das pessoas, mais os
+  outros notam que tem algo estranho nele, mais difícil ser uma criatura
+  sociável à noite. Segue o princípio "sinta pela narrativa" (ver Filosofia de
+  Design).
+
+### Sangue (Vampiro) — definido
+
+- **Teto sempre 10**, igual aos atributos gerais — **geração NÃO reduz o teto**
+  pro jogador (só Caim e os Iluminados da Sanatio escapam da régua 0-10 de
+  vez, como lendas > 10; ver seção 4). Geração baixíssima/"ralé" com teto 2-3
+  é coisa raríssima de NPC, não acontece com jogador.
+- **Pool inicial: 5** (metade do teto).
+- **Geração do jogador começa entre 6 e 8.** Não tem limite superior — quanto
+  maior o número, mais "ralo"/fraco/próximo de humano o sangue fica (na régua
+  extrema, tão diluído que o vampiro nem precisa mais se alimentar nem
+  consegue transformar ninguém — muito além de 8, não é preocupação agora).
+- **Diablerie baixa a geração** de quem consome até (no mínimo) a geração de
+  quem foi consumido.
+- **Cura gasta Sangue** (`ficha:modo_regen() == "escolha"`) e a quantidade de
+  HP por ponto **escala inversamente com a geração** (mais perto de Caim =
+  cura mais por ponto). Número exato é fator de balanceamento — fica ⚪ por
+  ora, só a regra qualitativa já está valendo.
+
+### Fúria (Lobisomem) — definido (qualitativamente; números ⚪)
+
+- **Recurso ativo, gasto em combate.** Ao gastar, buffa os próprios ataques e
+  concede turnos extras — quanto mais gasta de uma vez, maior o benefício.
+- **Risco: Frenesi.** Gastar Fúria SEMPRE tem chance de gerar Frenesi (nunca é
+  100% seguro), e esse risco:
+  - **sobe** com o quanto é gasto NUMA jogada só (gastar muito de uma vez é
+    mais arriscado que gastar pouco);
+  - **desce** conforme a Fúria do personagem é mais alta (mais Fúria = mais
+    controle, mais seguro gastar o mesmo tanto).
+  - **Não é cumulativo dentro da mesma luta** — não tem "memória" de turnos
+    anteriores; cada gasto é avaliado isolado, sem histórico pesando.
+- **Frenesi (efeito):** perde o controle — pode atacar aliados, fugir da
+  batalha, ou (fora de combate/escala maior) até dizimar um vilarejo.
+- **Filosofia:** "tentador e recompensador" — poder real na mão, com um risco
+  real, não decorativo.
+- **Não tem base/pool separados como Vontade** — é o próprio atributo sendo
+  gasto direto (como o Sangue do vampiro). Começa em **5**, teto **10**.
+- **Recarrega em lua cheia, em momentos de estresse (dano crítico ou situações
+  específicas) e a cada novo dia.** Implementado no motor só a função de
+  recarregar (`ficha:recarregar_furia`) — os GATILHOS concretos (calendário,
+  fases da lua, detectar "dano crítico") ainda não existem, porque o jogo
+  ainda não tem sistema de dias/lua. Ninguém chama a função sozinho ainda.
+- **Fórmula de risco (PROVISÓRIA, `core/ficha.lua:risco_frenesi`):**
+  `risco = quanto_gasto / furia_atual` (antes do gasto), capado em 100%.
+  Gastar tudo de uma vez sempre bate 100%. Já respeita as duas regras acima;
+  ajustar depois de sentir jogando (tabela de probabilidade em `testes.lua`).
+- **Buff de ataque IMPLEMENTADO, versão PROVISÓRIA pra testar o recurso:**
+  no menu Habilidades (nas duas UIs) o jogador escolhe QUANTO gastar (1 até a
+  Fúria atual), e o buff ESCALA: **+3 de dano e -1 de acerto POR PONTO
+  gasto** no PRÓXIMO ataque só. Decisão deliberada (ver conversa de design):
+  gastar 1 é um empurrão seguro, gastar tudo é surto de força bruta com
+  Frenesi quase garantido — isso é o que diferencia Fúria de Sangue (que é
+  recurso controlado/administrado, sem essa aposta). **Sem turnos extras** —
+  decidido que o recurso só afeta dano/acerto, não ações extras.
+  Repare que o -1 de acerto por ponto também reduz a MARGEM (que entra no
+  dano total) — o efeito líquido costuma ser um pouco menor que o dano bruto
+  anunciado, e em ataques na borda pode até empurrar de "total" pra "parcial"
+  (dano pior). Isso é
+  intencional pela fórmula existente, não um erro — vale sentir jogando se
+  isso "sente" bem ou se precisa mudar. A checagem de Frenesi em si (rolar o
+  risco e narrar) ainda NÃO está plugada nas UIs — só o buff de dano/acerto.
+
+### Umbra (Lobisomem) — definido (qualitativamente; números ⚪)
+
+- **Recurso passivo/de progressão, não é gasto.** Representa a conexão do
+  lobisomem com a Umbra — poder sobre espíritos e natureza. Não é uma
+  "perícia" no sentido da seção 4.5 (lobisomens não têm um atributo de
+  Ocultismo/conhecimento místico próprio — Umbra faz esse papel pra eles).
+- **Todo lobisomem começa baixo e sobe com o tempo** (mecanismo exato de
+  progressão — uso? marcos de história? — ainda ⚪).
+- A definir: o que Umbra alta desbloqueia na prática (falar com espíritos,
+  poderes de natureza — quais, especificamente); se tem teto 10 como os
+  outros ou escala diferente.
+
+### Sonhos (Mago) — definido (qualitativamente; números ⚪)
+
+- **Recurso ativo, é a mana.** Gasto pra manipular a realidade (ver `lore.md`
+  > Magos). Reto ao ponto — funciona como um pool de mana comum.
+
+### Quebras (Mago) — definido (qualitativamente; números ⚪)
+
+- **Sobe em falha crítica de conjuração** — quando o resultado do teste de
+  cast sai baixo demais (limiar exato ⚪, a decidir junto da fórmula de
+  magia quando ela existir).
+- **Pode DESCER com o tempo**, diferente da Corrupção (que só sobe) — se o
+  mago passa um tempo sem tomar Quebras novas, ela se reduz sozinha (taxa
+  exata ⚪).
+- **Teto 10 → Cemitério dos Sonhos, permadeath total** (ver `lore.md` >
+  Mundus/Cemitério dos Sonhos) — mesmo desfecho fatal do Ego/Corrupção, mas
+  chegar lá é reversível ao longo do caminho (Quebras desce), diferente da
+  Corrupção (que nunca desce).
+- **Efeito é ALEATÓRIO, mas a gravidade escala com quanto se ganha DE UMA VEZ**
+  (não com o total acumulado): a 1ª Quebra tomada isolada é sempre algo leve
+  — dano ou um debuff (alucinação/envelhecimento). Se o mago toma **2 Quebras
+  de uma vez só** (uma falha feia), o efeito pode ser bem maior — incluindo o
+  **Paradoxo**: um clone maligno do próprio mago se forma e ataca a reputação
+  do jogador (não o personagem em si — é meta, mira o jogador).
+- Lista de debuffs possíveis: dano, alucinações, envelhecimento, pesadelos,
+  Paradoxo (clone maligno). A definir: tabela de sorteio exata (chance de
+  cada um por quantidade ganha).
 
 ## 6. Combate por Turnos  🟢 (esqueleto)
 
@@ -438,7 +599,7 @@ Mesma mecânica pra jogador e inimigos (simétrica). Reaproveita o motor de test
   quando o atacante não supera a defesa; ver abaixo.)*
 
 ### Defesa (passiva, do alvo)
-- **Defesa = Vitalidade + 2** (talvez +1 — decidir jogando qual "sente" melhor).
+- **Defesa = Agilidade + 2** (talvez +1 — decidir jogando qual "sente" melhor).
 - **Armadura NÃO dá defesa.** Armadura apenas **reduz o dano tomado** (lógica pura:
   não te faz mais difícil de acertar, te faz sofrer menos quando acertam).
 

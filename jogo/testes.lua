@@ -98,6 +98,33 @@ do
   ok(p2:gastar_vontade() == false, "não deve gastar com pool vazio")
 end
 
+titulo("Fúria: só lobisomem tem, gasta reduz o próprio valor")
+do
+  local lobo = ficha.nova({}, "lobisomem")
+  ok(lobo:furia_atual() == 5, "Fúria deve começar em 5")
+  ok(lobo:gastar_furia(2) == true, "deve conseguir gastar 2 de Fúria")
+  ok(lobo:furia_atual() == 3, "Fúria deve cair pra 3 após gastar 2")
+  ok(lobo:gastar_furia(10) == false, "não deve gastar mais do que tem")
+  ok(lobo:furia_atual() == 3, "Fúria não deve mudar num gasto recusado")
+  lobo:recarregar_furia(20)
+  ok(lobo:furia_atual() == 10, "recarga não deve passar do teto (10)")
+
+  local humano = ficha.nova({}, "humano")
+  ok(humano:furia_atual() == nil, "humano não tem Fúria")
+  ok(humano:gastar_furia(1) == false, "humano não deve conseguir gastar Fúria")
+end
+
+titulo("Fúria: risco de Frenesi sobe com o gasto, desce com a Fúria restante")
+do
+  local lobo = ficha.nova({}, "lobisomem")  -- Fúria 5
+  ok(lobo:risco_frenesi(1) < lobo:risco_frenesi(4), "gastar mais de uma vez deve arriscar mais")
+  ok(lobo:risco_frenesi(5) == 1, "gastar TUDO de uma vez deve ser 100% de risco")
+  local lobo_forte = ficha.nova({}, "lobisomem")
+  lobo_forte:recarregar_furia(5)  -- Fúria 10 (teto)
+  ok(lobo_forte:risco_frenesi(2) < lobo:risco_frenesi(2),
+    "com mais Fúria total, o mesmo gasto deve arriscar menos")
+end
+
 titulo("ficha: valores padrão e atributos")
 do
   local p = ficha.nova({ forca = 3 })  -- lobisomem começa Força 3
@@ -195,6 +222,98 @@ do
   lobo:transformar("lupino")
   ok(lobo:bonus_acerto_forma() == 0 and lobo:bonus_dano_forma() == 0,
      "Lupino não tem bônus de combate")
+end
+
+titulo("Fúria: tabela por nível (não é linear) e teto de gasto por ativação")
+do
+  local lobo = ficha.nova({}, "lobisomem")  -- Fúria 5
+
+  ok(lobo:ativar_furia(1) == true, "nível 1 deve ativar com Fúria de sobra")
+  ok(lobo:furia_atual() == 4, "ativar deve gastar exatamente o nível (1)")
+  ok(lobo:bonus_dano_furia() == 3, "nível 1 -> +3 dano")
+  ok(lobo:bonus_acerto_furia() == -1, "acerto é sempre -1, não escala por nível")
+  ok(lobo:bonus_reducao_dano_furia() == 0, "nível 1 não reduz dano tomado")
+
+  local lobo2 = ficha.nova({}, "lobisomem")
+  lobo2:ativar_furia(3)
+  ok(lobo2:bonus_dano_furia() == 5, "nível 3 -> +5 dano (não é 3x3=9, a tabela não é linear)")
+  ok(lobo2:bonus_reducao_dano_furia() == 0, "nível 3 ainda não reduz dano tomado")
+
+  local lobo3 = ficha.nova({}, "lobisomem")
+  lobo3:recarregar_furia(5)  -- Fúria 10, pra poder testar níveis 4 e 5
+  lobo3:ativar_furia(4)
+  ok(lobo3:bonus_dano_furia() == 5, "nível 4 trava no dano do nível 3 (+5), não soma mais")
+  ok(lobo3:bonus_reducao_dano_furia() == 3, "nível 4 -> -3 de dano tomado")
+
+  local lobo4 = ficha.nova({}, "lobisomem")
+  lobo4:recarregar_furia(5)  -- Fúria 10
+  lobo4:ativar_furia(5)
+  ok(lobo4:bonus_dano_furia() == 5, "nível 5 também trava em +5 dano")
+  ok(lobo4:bonus_reducao_dano_furia() == 5, "nível 5 -> -5 de dano tomado (mais que o 4)")
+
+  local lobo5 = ficha.nova({}, "lobisomem")
+  lobo5:recarregar_furia(5)  -- Fúria 10
+  ok(lobo5:ativar_furia(6) == false, "não deve ativar acima do teto de gasto (5), mesmo tendo Fúria de sobra")
+
+  local lobo_vazio = ficha.nova({}, "lobisomem")
+  lobo_vazio.furia = 0
+  ok(lobo_vazio:ativar_furia(1) == false, "não deve ativar sem Fúria suficiente")
+end
+
+titulo("Fúria: buff dura 3 turnos e depois desliga sozinho")
+do
+  local lobo = ficha.nova({}, "lobisomem")
+  lobo:ativar_furia(2)
+  ok(lobo:furia_buff_ativo() == true, "buff deve começar ativo")
+  ok(lobo:bonus_dano_furia() == 4, "nível 2 -> +4 dano enquanto ativo")
+
+  lobo:passar_turno_furia()
+  ok(lobo:furia_buff_ativo() == true, "ainda ativo depois de 1 turno (dura 3)")
+  lobo:passar_turno_furia()
+  ok(lobo:furia_buff_ativo() == true, "ainda ativo depois de 2 turnos")
+  lobo:passar_turno_furia()
+  ok(lobo:furia_buff_ativo() == false, "desativa sozinho depois do 3º turno")
+  ok(lobo:bonus_dano_furia() == 0, "sem bônus depois de desativar")
+
+  -- passar_turno_furia em quem não tem Fúria (ex.: humano) deve ser inofensivo.
+  local humano = ficha.nova({}, "humano")
+  ok(humano:passar_turno_furia() == 0, "não deve dar erro em quem não tem Fúria")
+end
+
+titulo("combate: buff de Fúria do ATACANTE afeta dano/acerto; do ALVO reduz dano tomado")
+do
+  local armas = require("data.armas")
+  -- defesa 2 (vitalidade 0), de propósito bem baixa: mesmo com o -1 de acerto
+  -- do buff, o ataque continua na faixa TOTAL, senão a comparação de dano
+  -- fica inválida (parcial usa outra fórmula).
+  local alvo = ficha.nova({ vitalidade = 0 }, "humano")
+  local lobo = ficha.nova({ forca = 4 }, "lobisomem")
+  local r_vacilo = rng_de_faces({1})  -- dado 1 -> bônus 0
+
+  lobo:ativar_furia(1)  -- +3 dano, -1 acerto
+  local r1 = combate.atacar(lobo, alvo, armas.punhos, r_vacilo)
+  ok(r1.tipo == "total", "teste pressupõe faixa TOTAL (ajuste os atributos se isso falhar)")
+  ok(lobo:furia_buff_ativo() == true, "atacar NÃO consome mais o buff (agora dura por turnos)")
+
+  -- Comparação: um lobo IGUAL mas SEM Fúria (o buff dura por turnos, então não
+  -- dá pra reusar o mesmo lobo — ele continuaria buffado).
+  local lobo_sem = ficha.nova({ forca = 4 }, "lobisomem")
+  local alvo2 = ficha.nova({ vitalidade = 0 }, "humano")
+  local r2 = combate.atacar(lobo_sem, alvo2, armas.punhos, r_vacilo)
+  -- +3 direto no dano, mas o -1 de acerto também reduz a MARGEM em 1 — o
+  -- efeito líquido é +2, não +3 (comportamento correto da fórmula).
+  ok(r1.dano == r2.dano + 2,
+     "efeito líquido do buff no atacante deve ser +2 (dano +3, margem -1)")
+
+  -- Agora o buff no ALVO (defesa): nível 4 reduz -3 do dano tomado.
+  local tanque = ficha.nova({ vitalidade = 0 }, "lobisomem")
+  tanque:recarregar_furia(5)  -- Fúria 10
+  tanque:ativar_furia(4)
+  local atacante_fraco = ficha.nova({ forca = 4 }, "lobisomem")
+  local r_sem_defesa = combate.atacar(atacante_fraco, ficha.nova({ vitalidade = 0 }, "humano"), armas.punhos, r_vacilo)
+  local r_com_defesa = combate.atacar(atacante_fraco, tanque, armas.punhos, r_vacilo)
+  ok(r_com_defesa.dano == math.max(0, r_sem_defesa.dano - 3),
+     "alvo com Fúria nível 4 deve tomar 3 a menos de dano")
 end
 
 titulo("combate: regeneração passiva por turno do lobisomem = teto(nível/2)")
@@ -305,6 +424,25 @@ end
 print("\n  Referências do design:")
 print("  - Porta (feito de Força ~2): olhe a coluna dif 3~4 na linha attr2.")
 print("  - 1 tonelada (feito de Força 4): compare linhas attr3/4/5 numa dif alta (~6).")
+
+titulo("PROBABILIDADES — risco de Frenesi (confira a sensação; fórmula PROVISÓRIA)")
+print("  (linha = Fúria atual, coluna = quanto está sendo gasto agora)")
+io.write("          ")
+for gasto = 1, 5 do io.write(string.format("gasta%d ", gasto)) end
+io.write("\n")
+for furia = 2, 10, 2 do
+  io.write(string.format("  fúria%2d ", furia))
+  for gasto = 1, 5 do
+    local lobo = ficha.nova({}, "lobisomem")
+    lobo:recarregar_furia(furia - ficha.FURIA_INICIAL)
+    if gasto > furia then
+      io.write("   -  ")
+    else
+      io.write(string.format("%4.0f%% ", lobo:risco_frenesi(gasto) * 100))
+    end
+  end
+  io.write("\n")
+end
 
 -- ---------------------------------------------------------------------------
 print(string.format("\nRESULTADO: %d passaram, %d falharam.", passou, falhou))
