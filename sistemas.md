@@ -93,8 +93,11 @@ Objetivo: o mundo não é estático — o tempo passa e as coisas mudam com ele.
 - Como é invisível e só interno, não há preocupação com "peso" ou formato — é só um
   acumulador.
 
-**Vira código como:** um módulo `core/tempo.lua` com um relógio (`agora()`,
-`avancar(custo)`). As ações declaram seu custo nos dados, não no motor.
+**Vira código como:** `core/tempo.lua` — um relógio INSTANCIÁVEL (`tempo.novo()`,
+`:agora()`, `:avancar(custo)`), não um singleton de módulo. Cada mundo/sessão
+tem o seu; ninguém compartilha relógio à toa. As ações declaram seu custo nos
+dados, não no motor. (Ainda não conectado ao jogo jogável — só ao core e aos
+testes; falta uma ficha/masmorra/main chamar `:avancar()` de verdade.)
 
 ---
 

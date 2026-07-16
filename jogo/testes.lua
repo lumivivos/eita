@@ -108,13 +108,21 @@ end
 
 titulo("tempo: relógio soma custos e é reiniciável")
 do
-  tempo.reiniciar()
-  ok(tempo.agora() == 0, "relógio deve começar em 0")
-  tempo.avancar(1)
-  tempo.avancar(3)
-  ok(tempo.agora() == 4, "relógio deve somar custos (1+3=4)")
-  tempo.reiniciar()
-  ok(tempo.agora() == 0, "reiniciar deve zerar")
+  local relogio = tempo.novo()
+  ok(relogio:agora() == 0, "relógio deve começar em 0")
+  relogio:avancar(1)
+  relogio:avancar(3)
+  ok(relogio:agora() == 4, "relógio deve somar custos (1+3=4)")
+  relogio:reiniciar()
+  ok(relogio:agora() == 0, "reiniciar deve zerar")
+end
+
+titulo("tempo: dois relógios são independentes")
+do
+  local a, b = tempo.novo(), tempo.novo()
+  a:avancar(5)
+  ok(a:agora() == 5, "relógio A avança sozinho")
+  ok(b:agora() == 0, "relógio B não é afetado pelo A")
 end
 
 -- ---------------------------------------------------------------------------
