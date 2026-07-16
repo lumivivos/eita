@@ -14,6 +14,7 @@ local teste = require("core.teste")
 local ficha = require("core.ficha")
 local tempo = require("core.tempo")
 local combate = require("core.combate")
+local magia = require("core.magia")
 
 -- ---- mini-framework de asserção -------------------------------------------
 local passou, falhou = 0, 0
@@ -112,6 +113,110 @@ do
   local humano = ficha.nova({}, "humano")
   ok(humano:furia_atual() == nil, "humano não tem Fúria")
   ok(humano:gastar_furia(1) == false, "humano não deve conseguir gastar Fúria")
+end
+
+titulo("Umbra: só lobisomem tem, começa em 1, só sobe (nunca é gasta)")
+do
+  local lobo = ficha.nova({}, "lobisomem")
+  ok(lobo:umbra_atual() == 1, "Umbra deve começar em 1")
+  ok(lobo:ganhar_umbra(3) == 4, "ganhar deve somar (1+3=4)")
+  lobo:ganhar_umbra(20)
+  ok(lobo:umbra_atual() == 10, "não deve passar do teto (10)")
+
+  local vampiro = ficha.nova({}, "vampiro")
+  ok(vampiro:umbra_atual() == nil, "vampiro não tem Umbra (só lobisomem)")
+  ok(vampiro:ganhar_umbra(1) == nil, "ganhar_umbra não deve fazer nada em quem não tem Umbra")
+end
+
+titulo("Sonhos: só mago tem, sem teto, nunca abaixo do mínimo (1)")
+do
+  local mago = ficha.nova({}, "mago")
+  ok(mago:sonhos_atual() == 1, "Sonhos deve começar em 1")
+  ok(mago:gastar_sonhos(1) == false, "não deve gastar se derrubaria abaixo do mínimo (1-1=0)")
+  mago:recarregar_sonhos(9)
+  ok(mago:sonhos_atual() == 10, "recarga deve somar (1+9=10)")
+  ok(mago:gastar_sonhos(9) == true, "deve gastar até deixar exatamente no mínimo (10-9=1)")
+  ok(mago:sonhos_atual() == 1, "sonhos deve cair pro mínimo (1)")
+  mago:recarregar_sonhos(1000)
+  ok(mago:sonhos_atual() == 1001, "não existe teto pra Sonhos")
+
+  local humano = ficha.nova({}, "humano")
+  ok(humano:sonhos_atual() == nil, "humano não tem Sonhos")
+end
+
+titulo("Quebras: acumula, tem teto 10, pode reduzir (diferente de Corrupção)")
+do
+  local mago = ficha.nova({}, "mago")
+  ok(mago:quebras_atual() == 0, "Quebras deve começar em 0")
+  ok(mago:ganhar_quebras(3) == 3, "ganhar deve somar")
+  ok(mago:no_cemiterio_dos_sonhos() == false, "3 de 10 não é o teto ainda")
+  mago:ganhar_quebras(20)
+  ok(mago:quebras_atual() == 10, "não deve passar do teto (10)")
+  ok(mago:no_cemiterio_dos_sonhos() == true, "10 de Quebras = Cemitério dos Sonhos")
+  ok(mago:reduzir_quebras(4) == 6, "reduzir deve subtrair (10-4=6, diferente de Corrupção)")
+  mago:reduzir_quebras(100)
+  ok(mago:quebras_atual() == 0, "não deve passar do chão (0)")
+end
+
+titulo("magia: quebras_por_falha escala em degraus de 5 pelo custo")
+do
+  ok(magia.quebras_por_falha(1) == 1, "custo 1 -> 1 Quebra")
+  ok(magia.quebras_por_falha(5) == 1, "custo 5 -> 1 Quebra (teto do primeiro degrau)")
+  ok(magia.quebras_por_falha(6) == 2, "custo 6 -> 2 Quebras (novo degrau)")
+  ok(magia.quebras_por_falha(10) == 2, "custo 10 -> 2 Quebras")
+  ok(magia.quebras_por_falha(11) == 3, "custo 11 -> 3 Quebras")
+end
+
+titulo("magia: conjurar recusa sem Sonhos suficiente, sem rolar nada")
+do
+  local mago = ficha.nova({}, "mago")  -- Sonhos 1, mínimo 1 -> não pode gastar nada
+  local feitico = { nome = "Teste", custo = 1, dif = 3 }
+  local r = magia.conjurar(mago, feitico)
+  ok(r.conjurou == false, "não deve conjurar sem Sonhos")
+  ok(r.sem_sonhos == true, "deve sinalizar falta de Sonhos")
+  ok(mago:sonhos_atual() == 1, "Sonhos não deve mudar numa recusa")
+end
+
+titulo("magia: sucesso não gera Quebras")
+do
+  local mago = ficha.nova({}, "mago")
+  mago:recarregar_sonhos(9)  -- Sonhos 10
+  -- Depois de gastar 1 (custo), sonhos=9. base = 9 + vontade(5) = 14.
+  -- dado forçado pra face 3 (bônus 2) -> total = 16. dif 3 -> passa fácil.
+  local feitico = { nome = "Teste", custo = 1, dif = 3 }
+  local r = magia.conjurar(mago, feitico, rng_de_faces({3}))
+  ok(r.conjurou == true, "deve conjurar (teste alto vs dif baixa)")
+  ok(r.quebras_ganhas == 0, "sucesso não gera Quebras")
+  ok(mago:quebras_atual() == 0, "Quebras deve continuar em 0")
+end
+
+titulo("magia: falha LEVE (quase passou) não gera Quebras")
+do
+  local mago = ficha.nova({}, "mago")
+  mago.sonhos = 2  -- após gastar o custo (1), sobra 1 -> base baixo de propósito
+  -- base = sonhos APÓS pagar (2-1=1) + vontade(5) = 6. face 1 -> bônus 0.
+  -- total = 6. dif 8: margem_falha = 8-6 = 2. limiar = floor(8/2) = 4.
+  -- 2 <= 4 -> falha LEVE.
+  local feitico = { nome = "Teste", custo = 1, dif = 8 }
+  local r = magia.conjurar(mago, feitico, rng_de_faces({1}))
+  ok(r.conjurou == false, "deve falhar (total 6 < dif 8)")
+  ok(r.falha_feia == false, "margem 2 <= limiar 4 -> falha LEVE, não feia")
+  ok(r.quebras_ganhas == 0, "falha leve não gera Quebras")
+end
+
+titulo("magia: falha FEIA (errou por mais que metade) gera Quebras")
+do
+  local mago = ficha.nova({}, "mago")
+  mago.sonhos = 2
+  -- base = sonhos APÓS pagar (2-1=1) + vontade(5) = 6. face 1 -> bônus 0.
+  -- total = 6. dif 15: margem_falha = 15-6 = 9. limiar = floor(15/2) = 7.
+  -- 9 > 7 -> falha FEIA.
+  local feitico = { nome = "Teste", custo = 1, dif = 15 }
+  local r = magia.conjurar(mago, feitico, rng_de_faces({1}))
+  ok(r.conjurou == false, "deve falhar (total 6 < dif 15)")
+  ok(r.falha_feia == true, "margem 9 > limiar 7 -> falha FEIA")
+  ok(r.quebras_ganhas == magia.quebras_por_falha(1), "quebras geradas devem bater com a fórmula (custo 1 -> 1)")
+  ok(mago:quebras_atual() == r.quebras_ganhas, "ficha deve refletir as Quebras ganhas")
 end
 
 titulo("Fúria: risco de Frenesi sobe com o gasto, desce com a Fúria restante")

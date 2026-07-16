@@ -571,44 +571,80 @@ ainda ⚪), um sistema separado.
     dizimar vilarejo — ficam pra quando existir esse conteúdo (não há aliados nem
     vilarejos jogáveis ainda).
 
-### Umbra (Lobisomem) — definido (qualitativamente; números ⚪)
+### Umbra (Lobisomem) — implementado (esqueleto; conteúdo dos poderes ⚪)
 
-- **Recurso passivo/de progressão, não é gasto.** Representa a conexão do
-  lobisomem com a Umbra — poder sobre espíritos e natureza. Não é uma
-  "perícia" no sentido da seção 4.5 (lobisomens não têm um atributo de
-  Ocultismo/conhecimento místico próprio — Umbra faz esse papel pra eles).
-- **Todo lobisomem começa baixo e sobe com o tempo** (mecanismo exato de
-  progressão — uso? marcos de história? — ainda ⚪).
-- A definir: o que Umbra alta desbloqueia na prática (falar com espíritos,
-  poderes de natureza — quais, especificamente); se tem teto 10 como os
-  outros ou escala diferente.
+- **Funciona como uma PERÍCIA, não como Fúria.** Não se gasta — só sobe, nunca
+  desce. Representa a conexão/sintonia do lobisomem com a Umbra, o plano onde
+  ficam Gaia e os espíritos da natureza (Gaia é, na prática, a religião dos
+  lobisomens). Umbra alta destrava artefatos espirituais e poderes xamânicos
+  (lista concreta ainda ⚪ — nenhum poder específico definido/implementado).
+- **Escala 0–10, igual aos outros.** Todo lobisomem jogador **começa em 1**.
+  Nenhuma outra raça pode ter Umbra (nem ganhar depois — é exclusivo da
+  raça, ao contrário de Sangue/Sonhos que são consequência de uma
+  transformação e por isso, em tese, outra raça poderia um dia adquirir).
+- **Sobe por quests específicas de Gaia** (`ficha:ganhar_umbra`) — versão
+  PROVISÓRIA: o método existe e funciona, mas nenhuma quest de verdade chama
+  ele ainda (não há conteúdo de campanha ligado a isso). Comparável ao
+  `core/tempo.lua`: mecanismo pronto, gatilho de conteúdo pendente.
+- **REGRA GERAL DE VISIBILIDADE (vale pra todos os recursos secundários, não
+  só Umbra):** "visibilidade segue a agência" (mesmo princípio já usado pras
+  perícias comuns, seção 4.5). Fúria é VISÍVEL porque o jogador a controla
+  ativamente (escolhe quanto gastar a cada ativação). Umbra, Humanidade e
+  Quebras são OCULTAS — ninguém vê o número bruto, nem o vampiro vê sua
+  própria Humanidade — porque sobem/descem como consequência de ações, não
+  por escolha direta de "gastar X agora". O jogador sente o efeito pela
+  narrativa (ex.: fica mais estranho, mais forte em rituais), nunca lê o
+  valor cru.
 
-### Sonhos (Mago) — definido (qualitativamente; números ⚪)
+### Sonhos (Mago) — implementado
 
 - **Recurso ativo, é a mana.** Gasto pra manipular a realidade (ver `lore.md`
-  > Magos). Reto ao ponto — funciona como um pool de mana comum.
+  > Magos). **Sem teto** (diferente de Sangue/Fúria), mas **nunca abaixo de
+  1** (`ficha.SONHOS_MINIMO`) — o mago não "seca" de vez. Começa em **1**.
+  `ficha:gastar_sonhos` / `ficha:recarregar_sonhos` / `ficha:sonhos_atual`.
 
-### Quebras (Mago) — definido (qualitativamente; números ⚪)
+### Quebras (Mago) — implementado (esqueleto do motor; conteúdo dos debuffs ⚪)
 
-- **Sobe em falha crítica de conjuração** — quando o resultado do teste de
-  cast sai baixo demais (limiar exato ⚪, a decidir junto da fórmula de
-  magia quando ela existir).
-- **Pode DESCER com o tempo**, diferente da Corrupção (que só sobe) — se o
-  mago passa um tempo sem tomar Quebras novas, ela se reduz sozinha (taxa
-  exata ⚪).
-- **Teto 10 → Cemitério dos Sonhos, permadeath total** (ver `lore.md` >
-  Mundus/Cemitério dos Sonhos) — mesmo desfecho fatal do Ego/Corrupção, mas
-  chegar lá é reversível ao longo do caminho (Quebras desce), diferente da
-  Corrupção (que nunca desce).
-- **Efeito é ALEATÓRIO, mas a gravidade escala com quanto se ganha DE UMA VEZ**
-  (não com o total acumulado): a 1ª Quebra tomada isolada é sempre algo leve
-  — dano ou um debuff (alucinação/envelhecimento). Se o mago toma **2 Quebras
-  de uma vez só** (uma falha feia), o efeito pode ser bem maior — incluindo o
+- **Sobe em FALHA FEIA de conjuração** (`core/magia.lua:conjurar`) — não é
+  qualquer falha. Fórmula do teste: `sonhos_atual (DEPOIS de pagar o custo)
+  + vontade + 1d3`, comparado com a `dif` da magia. Falha = resultado < dif.
+  - **INTENCIONAL: magia cara é mais difícil de acertar.** Como o Sonhos que
+    SOBRA (pós-custo) entra no teste, gastar muito te deixa "no limite" e
+    derruba a própria chance. Somado ao fato de que falha feia de magia cara
+    gera MAIS Quebras, a magia poderosa pune duas vezes (difícil de acertar +
+    dói mais ao errar). É a lore em mecânica ("quanto maior o rasgo, mais a
+    realidade cobra") e premia o mago comedido — que acumula Sonhos antes da
+    magia grande — em vez do afoito (ecoa "os melhores magos usam magia de
+    forma mínima").
+  **Falha FEIA** = errou por MAIS que metade da dificuldade (arredondada pra
+  baixo) — errar por pouco ("quase passei") não gera Quebras.
+- **Quantidade de Quebras por falha feia escala com o CUSTO da magia**, em
+  degraus de 5 (`magia.quebras_por_falha`): custo 1-5 → 1 Quebra; 6-10 → 2;
+  11-15 → 3; sucessivamente. Magia mais cara falhada dói mais.
+- **Pode DESCER com o tempo** (`ficha:reduzir_quebras`), diferente da
+  Corrupção (que só sobe) — se o mago passa um tempo sem tomar Quebras
+  novas, ela se reduz sozinha (taxa/gatilho exatos ⚪, só o mecanismo existe).
+- **Teto 10 → Cemitério dos Sonhos, permadeath total** (`ficha:no_cemiterio_dos_sonhos`;
+  ver `lore.md` > Mundus/Cemitério dos Sonhos) — mesmo desfecho fatal do
+  Ego/Corrupção, mas chegar lá é reversível ao longo do caminho (Quebras
+  desce), diferente da Corrupção (que nunca desce).
+- **Efeito é ALEATÓRIO, mas a gravidade escala com quanto se ganha DE UMA
+  VEZ** (não com o total acumulado): 1 Quebra ganha de uma vez é sempre algo
+  leve — dano ou um debuff (alucinação/envelhecimento). Ganhar 2+ de uma vez
+  (magia mais cara falhada feio) pode ser bem maior — incluindo o
   **Paradoxo**: um clone maligno do próprio mago se forma e ataca a reputação
-  do jogador (não o personagem em si — é meta, mira o jogador).
-- Lista de debuffs possíveis: dano, alucinações, envelhecimento, pesadelos,
-  Paradoxo (clone maligno). A definir: tabela de sorteio exata (chance de
-  cada um por quantidade ganha).
+  do jogador (não o personagem em si — é meta, mira o jogador). Lista de
+  debuffs possíveis: dano, alucinações, envelhecimento, pesadelos, Paradoxo.
+  A definir: tabela de sorteio exata (chance de cada um por quantidade
+  ganha) — ainda NÃO implementado, só o número de Quebras ganhas está pronto.
+
+### `core/magia.lua` e `data/magias.lua` — motor pronto, conteúdo em aberto
+
+`core/magia.lua` resolve uma conjuração (espelha `core/combate.lua`):
+`magia.conjurar(conjurador, feitico, rng)` devolve se conjurou, se foi falha
+feia, e quantas Quebras gerou (já aplicadas na ficha). `data/magias.lua` é o
+catálogo data-driven (`nome`, `custo`, `dif` por magia) — **propositalmente
+vazio**, o conteúdo das magias é criativo e fica por conta de quem escreve.
 
 ## 6. Combate por Turnos  🟢 (esqueleto)
 

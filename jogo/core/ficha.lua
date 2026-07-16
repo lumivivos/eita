@@ -66,6 +66,19 @@ function ficha.nova(attrs, raca)
   -- (como o Sangue do vampiro). nil pras demais raças (não tem Fúria).
   if self.raca == "lobisomem" then
     self.furia = ficha.FURIA_INICIAL
+    -- Umbra: conexão/sintonia com Gaia e os espíritos da natureza (ver
+    -- sistemas.md > Recursos por Raça > Umbra). Diferente de Fúria: NÃO se
+    -- gasta, é um valor OCULTO que só sobe (como perícia — sobe por uso,
+    -- aqui por quests específicas de Gaia). Só lobisomem tem; nenhuma outra
+    -- raça pode ganhar Umbra.
+    self.umbra = ficha.UMBRA_INICIAL
+  elseif self.raca == "mago" then
+    -- Sonhos & Quebras (só mago; ver sistemas.md > Recursos por Raça).
+    -- Sonhos = mana (sem teto, mas nunca abaixo de SONHOS_MINIMO). Quebras =
+    -- preço acumulado por falha feia de conjuração (0-10; 10 = Cemitério dos
+    -- Sonhos, permadeath).
+    self.sonhos = ficha.SONHOS_INICIAL
+    self.quebras = 0
   end
   self.pericias = {}   -- nome -> nível (sobem por uso; vazio no início)
   -- Nível de personagem (1..10, mesmo teto dos atributos). Sobe por EXP (raro).
@@ -417,6 +430,96 @@ function ficha:passar_turno_frenesi()
   end
   self.frenesi_turnos_restantes = self.frenesi_turnos_restantes - 1
   return self.frenesi_turnos_restantes
+end
+
+-- ---- Umbra (lobisomem) -----------------------------------------------------
+-- Conexão/sintonia com Gaia e os espíritos da natureza (ver sistemas.md >
+-- Recursos por Raça > Umbra). NÃO é um recurso gasto como Fúria — é um valor
+-- OCULTO (o jogador nunca vê o número, só sente narrativamente — mesma regra
+-- das perícias comuns: "visibilidade segue a agência"). Só sobe; não existe
+-- ação que o reduza. Só lobisomem tem; nenhuma outra raça pode ganhar Umbra.
+-- O que Umbra alta desbloqueia na prática (artefatos espirituais, poderes
+-- xamânicos) ainda não está definido/implementado — só o valor em si.
+
+ficha.UMBRA_INICIAL = 1
+ficha.UMBRA_MAX = 10
+
+-- Quanto de Umbra o personagem tem (nil se a raça não pode ter Umbra).
+function ficha:umbra_atual()
+  return self.umbra
+end
+
+-- Aumenta Umbra (nunca passa do teto). PROVISÓRIO: pensado pra ser chamado
+-- ao completar quests específicas de Gaia (ainda não existem no jogo) — por
+-- ora, só o mecanismo de aumentar existe, sem gatilho automático ligado a
+-- conteúdo. Sem efeito (devolve nil) se a raça não tiver Umbra.
+function ficha:ganhar_umbra(quanto)
+  if not self.umbra then return nil end
+  self.umbra = math.min(ficha.UMBRA_MAX, self.umbra + (quanto or 0))
+  return self.umbra
+end
+
+-- ---- Sonhos & Quebras (mago) ------------------------------------------------
+-- Ver sistemas.md > Recursos por Raça. Sonhos = mana, gasta por magia
+-- (SEM TETO, mas nunca abaixo de SONHOS_MINIMO — o mago não "seca" de vez).
+-- Quebras = preço acumulado por falha feia de conjuração (0-10; core/magia.lua
+-- cuida de quando/quanto Quebras uma falha gera). Só mago tem os dois.
+
+ficha.SONHOS_INICIAL = 1
+ficha.SONHOS_MINIMO = 1
+ficha.QUEBRAS_MAX = 10
+
+-- Quanto de Sonhos o mago tem agora (nil se a raça não tiver Sonhos).
+function ficha:sonhos_atual()
+  return self.sonhos
+end
+
+-- Gasta `quanto` de Sonhos. Recusa (devolve false) se a raça não tiver Sonhos
+-- ou se o gasto derrubasse abaixo do mínimo (1) — nunca "seca" de vez.
+function ficha:gastar_sonhos(quanto)
+  if not self.sonhos or not quanto or quanto <= 0 then
+    return false
+  end
+  if self.sonhos - quanto < ficha.SONHOS_MINIMO then
+    return false
+  end
+  self.sonhos = self.sonhos - quanto
+  return true
+end
+
+-- Restaura Sonhos (sem teto). Quem chama decide quanto (descanso, etc — o
+-- gatilho concreto ainda não existe no motor, só o mecanismo).
+function ficha:recarregar_sonhos(quanto)
+  if not self.sonhos then return nil end
+  self.sonhos = self.sonhos + (quanto or 0)
+  return self.sonhos
+end
+
+-- Quantas Quebras o mago tem (nil se a raça não tiver Quebras).
+function ficha:quebras_atual()
+  return self.quebras
+end
+
+-- Ganha Quebras (nunca passa do teto 10). Quem chama (core/magia.lua) decide
+-- quanto, com base em `magia.quebras_por_falha`.
+function ficha:ganhar_quebras(quanto)
+  if not self.quebras then return nil end
+  self.quebras = math.min(ficha.QUEBRAS_MAX, self.quebras + (quanto or 0))
+  return self.quebras
+end
+
+-- Reduz Quebras (nunca abaixo de 0). Diferente de Corrupção (que só sobe),
+-- Quebras pode baixar com o tempo sem tomar mais — taxa exata ⚪, só o
+-- mecanismo existe (ver sistemas.md).
+function ficha:reduzir_quebras(quanto)
+  if not self.quebras then return nil end
+  self.quebras = math.max(0, self.quebras - (quanto or 0))
+  return self.quebras
+end
+
+-- Bateu no teto de Quebras -> Cemitério dos Sonhos, permadeath (ver lore.md).
+function ficha:no_cemiterio_dos_sonhos()
+  return (self.quebras or 0) >= ficha.QUEBRAS_MAX
 end
 
 -- ---- Força de Vontade -----------------------------------------------------
