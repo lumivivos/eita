@@ -47,20 +47,12 @@ ficha.REGEN_POR_RACA = {
 --   raca  = "humano" (padrão), "vampiro", "lobisomem", "mago".
 --           (A Abominação é outra categoria de existência — ver lore.md — e não
 --            é tratada como raça mortal comum aqui.)
-function ficha.nova(attrs, raca)
-  attrs = attrs or {}
-  local self = setmetatable({}, ficha)
-  self.raca = raca or "humano"
-  self.atributos = {}
-  for _, nome in ipairs(ficha.ATRIBUTOS) do
-    -- vontade tem chão próprio (5); os demais, 2.
-    local padrao = (nome == "vontade") and 5 or 2
-    self.atributos[nome] = attrs[nome] or padrao
-  end
-  -- Força de Vontade tem DUAS camadas (ver design):
-  --   base  = atributo "vontade" -> resistência mental (estável, é o máximo)
-  --   pool  = pontos gastáveis pra rerrolar; começa cheio (= base)
-  self.vontade_pool = self.atributos.vontade
+-- Inicializa os recursos ESPECÍFICOS de raça (Fúria/Umbra, Sonhos/Quebras,
+-- Sangue/Geração...) na ficha `self`, dado `attrs` (mesma tabela de
+-- ficha.nova). Extraído à parte pra ser reaproveitado tanto na criação
+-- (ficha.nova) quanto numa transformação posterior (ficha:transformar_raca) —
+-- ver data/racas.lua: vampiro/mago não são pontos de partida, só destinos.
+local function iniciar_recursos_raca(self, attrs)
   -- Fúria (só lobisomem; ver sistemas.md > Recursos por Raça > Fúria).
   -- Diferente de Vontade: não tem base/pool separados, o valor É o gasto
   -- (como o Sangue do vampiro). nil pras demais raças (não tem Fúria).
@@ -97,6 +89,23 @@ function ficha.nova(attrs, raca)
     -- aqui dentro, pra manter ficha.nova determinística; ver design).
     self.geracao = attrs.geracao or 7
   end
+end
+
+function ficha.nova(attrs, raca)
+  attrs = attrs or {}
+  local self = setmetatable({}, ficha)
+  self.raca = raca or "humano"
+  self.atributos = {}
+  for _, nome in ipairs(ficha.ATRIBUTOS) do
+    -- vontade tem chão próprio (5); os demais, 2.
+    local padrao = (nome == "vontade") and 5 or 2
+    self.atributos[nome] = attrs[nome] or padrao
+  end
+  -- Força de Vontade tem DUAS camadas (ver design):
+  --   base  = atributo "vontade" -> resistência mental (estável, é o máximo)
+  --   pool  = pontos gastáveis pra rerrolar; começa cheio (= base)
+  self.vontade_pool = self.atributos.vontade
+  iniciar_recursos_raca(self, attrs)
   -- Humanidade é UNIVERSAL — todo ser tem (ver sistemas.md > Humanidade). O
   -- número em si (0-10) e as marcações valem pra qualquer raça; o que é só do
   -- vampiro é o EFEITO (debuffs por Humanidade baixa — ainda ⚪). Todos começam
@@ -125,6 +134,23 @@ function ficha.nova(attrs, raca)
   -- partida já está correto.
   self:_atualizar_sagrado()
   return self
+end
+
+-- Transforma uma ficha JÁ EXISTENTE em outra raça (ver data/racas.lua:
+-- vampiro/mago não são pontos de partida, só destinos — chega-se a eles
+-- vivendo, não escolhendo na criação). Ao contrário de ficha.nova, PRESERVA
+-- tudo que o personagem já é (atributos, nível/exp, perícias, Humanidade,
+-- HP, forma, Besta, Vontade) — só a raça muda, e com ela os recursos
+-- específicos dela (iniciados do zero, como se nascessem agora).
+--   nova_raca = "vampiro" ou "mago" (as duas transformações jogáveis hoje).
+--   attrs     = opcional; só usado por campos específicos da raça (ex.:
+--               {geracao = N} pro vampiro — ver iniciar_recursos_raca).
+function ficha:transformar_raca(nova_raca, attrs)
+  self.raca = nova_raca
+  iniciar_recursos_raca(self, attrs or {})
+  -- HP_BASE de humano/vampiro/mago é o mesmo (10), então não há reajuste de
+  -- teto aqui — mas clampar é seguro caso isso mude no futuro.
+  self.hp = math.min(self.hp, self:hp_max())
 end
 
 -- Teto de nível de personagem (mesma régua dos atributos).

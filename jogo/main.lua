@@ -12,6 +12,7 @@ local racas = require("data.racas")
 local armas = require("data.armas")
 local combate_ui = require("core.combate_ui")
 local masmorra = require("core.masmorra")
+local dado = require("core.dado")
 
 console.preparar()
 
@@ -102,8 +103,12 @@ local function desfecho(resultado)
     console.linha("  A estrada segue. E ela é longa.")
   elseif resultado == "fuga" then
     console.linha("  Você corre até os pulmões arderem. Escapou. Dessa vez.")
-  else
+  elseif resultado == "morte" then
     console.linha("  Assim termina — mais um nome que o mundo não vai lembrar.")
+  else
+    -- Fallback defensivo: combate_ui.lutar só devolve vitoria/fuga/morte hoje.
+    -- Se algum dia devolver outra coisa, isto evita uma tela muda.
+    console.linha("  [ desfecho desconhecido: " .. tostring(resultado) .. " ]")
   end
   console.linha("")
   console.linha("  [ fim do protótipo ]")
@@ -111,16 +116,61 @@ local function desfecho(resultado)
   console.pausar("  (Enter para sair)")
 end
 
--- Gancho da rota do vampirismo (desfecho "preso" da masmorra). Por ora só um
--- marcador; será construída na sequência (ver campanha/principal).
-local function rota_vampirismo()
+-- Rota do vampirismo (desfecho "preso" da masmorra). Um vampiro te encontra
+-- na cela e te transforma — sem escolha, como a fuga já não é mais possível.
+-- Transforma a MESMA ficha (ficha:transformar_raca), preservando tudo que o
+-- jogador já era; só a raça (e os recursos que vêm com ela) muda.
+local function rota_vampirismo(jogador)
   console.limpar()
   console.linha("")
   console.linha("  A porta da cela range. Você não está mais sozinho.")
   console.linha("")
-  console.linha("  [ A rota do vampirismo começa aqui — a construir ]")
+  console.linha("  Uma figura pálida entra, sem pressa nenhuma. Fome nos")
+  console.linha("  olhos — mas também cálculo, como quem já decidiu algo.")
   console.linha("")
-  console.pausar("  (Enter para sair)")
+  console.pausar("  (Enter)")
+
+  console.linha("")
+  console.linha("  Não há negociação. Presas encontram sua garganta antes")
+  console.linha("  que você consiga reagir.")
+  console.linha("")
+  console.pausar("  (Enter)")
+
+  jogador:transformar_raca("vampiro")
+
+  console.linha("")
+  console.linha("  Quando a dor passa, o mundo parece diferente. Mais")
+  console.linha("  nítido. Mais frio. Você já não é mais só um homem")
+  console.linha("  preso numa cela.")
+  console.linha("")
+  console.pausar("  (Enter)")
+end
+
+-- Chance de os Sonhos te notarem logo após escapar (só caminho humano — ver
+-- lore.md > Magos: "buscam pessoas aptas... seja um animal ou humano, não
+-- importa"). Rola 1d3; só a face 3 (1/3 de chance) acerta. Se acertar,
+-- transforma a ficha em mago; senão, o jogador simplesmente segue humano.
+local function tentar_sonhos(jogador)
+  local _, face = dado.rolar()
+  if face ~= 3 then
+    return
+  end
+
+  console.limpar()
+  console.linha("")
+  console.linha("  Livre, correndo ainda ofegante, algo te nota. Não é um")
+  console.linha("  deus, nem um monstro — um sussurro sem voz, atrás dos")
+  console.linha("  seus olhos, dentro do seu peito. Procurando alguém apto.")
+  console.linha("")
+  console.pausar("  (Enter)")
+
+  jogador:transformar_raca("mago")
+
+  console.linha("")
+  console.linha("  Encontrou. A partir de agora, a realidade tem uma nova")
+  console.linha("  fresta — e ela passa por você.")
+  console.linha("")
+  console.pausar("  (Enter)")
 end
 
 local function main()
@@ -130,16 +180,18 @@ local function main()
   despertar(raca)
 
   -- Caminho HUMANO: começa preso na masmorra.
-  --   fuga  -> segue livre (por ora, o primeiro encontro na estrada)
-  --   preso -> rota do vampirismo (gancho)
+  --   fuga  -> segue livre; chance de os Sonhos te notarem (vira mago)
+  --   preso -> um vampiro te encontra e te transforma (rota_vampirismo)
+  -- Os dois casos seguem pro mesmo primeiro encontro depois — a ficha (agora
+  -- vampiro/mago/humano) já carrega os recursos certos pro combate.
   -- (O lobisomem, por ora, vai direto ao primeiro encontro — inalterado.)
   if raca == "humano" then
     local saida = masmorra.jogar()
     if saida == "preso" then
-      rota_vampirismo()
-      return
+      rota_vampirismo(jogador)
+    else
+      tentar_sonhos(jogador)
     end
-    -- escapou: continua livre.
   end
 
   local resultado = primeiro_encontro(jogador)

@@ -925,6 +925,28 @@ Recompensa pensar antes de agir (examinar tudo de graça, planejar, executar cer
 pune o afobado (sair revirando/batendo gasta ações preciosas à toa). Primeira cena a usar
 isto: a Masmorra (tutorial). É o molde pras cenas futuras.
 
+### Transformação de raça — implementado (esqueleto)
+
+`ficha:transformar_raca(nova_raca, attrs)` (`core/ficha.lua`) converte uma
+ficha JÁ EXISTENTE pra outra raça, preservando tudo que o personagem já é
+(atributos, nível/exp, perícias, Humanidade, HP, forma, Besta, Vontade) — só
+a raça muda, e com ela os recursos específicos dela são iniciados do zero
+(mesma lógica de `ficha.nova`, extraída pra uma função interna reaproveitada
+pelas duas). Bate com a nota de `data/racas.lua`: vampiro/mago não são
+pontos de partida, só destinos.
+
+**Primeira demo jogável ponta a ponta, sem lore ainda** (`main.lua`):
+origem (monstro/homem) → se homem, masmorra (tutorial de fuga, ver seção
+6.7 e `campanha/principal/masmorra.md`) → **preso** = um vampiro (sem nome,
+genérico) aparece e transforma à força (`rota_vampirismo`); **fuga** = 1/3
+de chance (1d3, face 3) de os Sonhos notarem e transformar em mago
+(`tentar_sonhos`, ver `lore.md` > Magos: "buscam pessoas aptas... seja
+animal ou humano"). Os dois casos (e o lobisomem, que pula a masmorra)
+seguem pro mesmo primeiro combate (`primeiro_encontro`) — a ficha já
+carrega os recursos certos pro menu de Habilidades reconhecer a raça.
+Mago ainda não tem opções no menu de Habilidades (magia não está wired na
+UI de combate — ver Conceitos & Fusão); isso é esperado, não bug.
+
 ## 7. Reputação  ⚪
 _A definir._
 
