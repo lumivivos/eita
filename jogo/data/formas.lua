@@ -53,7 +53,7 @@ return {
     descricao = "Algo maior que um lobo se desdobra de você — magro, torto, faminto.",
     usa_armas = false,
     arma_natural = "garras",
-    bonus_acerto = 2,
+    bonus_acerto = 3,
     bonus_dano = 2,
   },
 }

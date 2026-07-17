@@ -98,6 +98,10 @@ local function turno_do_inimigo(esquivou)
   end
   jogo.inimigo:regenerar_turno()
   jogo.jogador:regenerar_turno()
+  -- Duração do buff de Fúria (3 turnos; ver ficha:passar_turno_furia).
+  -- No-op pra quem não tem Fúria ativa (a maioria).
+  jogo.inimigo:passar_turno_furia()
+  jogo.jogador:passar_turno_furia()
 end
 
 -- Executa um turno completo (jogador age -> inimigo revida).
@@ -148,6 +152,18 @@ local function abrir_habilidades()
       table.insert(opcoes, formas.humanoide.nome)
       table.insert(acoes, "humanoide")
     end
+    -- Fúria: uma opção por nível possível (1..FURIA_GASTO_MAX, limitado pelo
+    -- quanto o jogador realmente tem). Dura FURIA_DURACAO_TURNOS turnos.
+    -- Gastar tudo de uma vez é sempre 100% de risco de Frenesi (ver
+    -- ficha:risco_frenesi).
+    local teto_gasto = math.min(ficha.FURIA_GASTO_MAX, jogo.jogador:furia_atual() or 0)
+    for q = 1, teto_gasto do
+      local reducao = ficha.FURIA_TABELA_REDUCAO[q]
+      local extra = reducao and string.format(", -%d dano tomado", reducao) or ""
+      table.insert(opcoes, string.format("Fúria: gastar %d (%d turnos, +%d dano, -1 acerto%s)",
+        q, ficha.FURIA_DURACAO_TURNOS, ficha.FURIA_TABELA_DANO[q], extra))
+      table.insert(acoes, { furia = q })
+    end
   end
 
   if #opcoes == 0 then
@@ -167,6 +183,34 @@ local function transformar_jogador(id_forma)
   turno_do_inimigo(false)
 end
 
+-- Ativa o buff de Fúria (também consome o turno, igual transformar). A lista
+-- do submenu já garante saldo suficiente (só oferece 1..furia_atual).
+-- Rola o risco de Frenesi ANTES de gastar (fórmula usa a Fúria atual).
+local function usar_furia_jogador(quanto)
+  local surtou = jogo.jogador:rolar_frenesi(quanto)
+  jogo.jogador:ativar_furia(quanto)
+  logar("O Caos ferve sob sua pele. O próximo golpe será cru.")
+  if surtou then
+    jogo.jogador:entrar_frenesi()
+    logar("Mas algo se rompe. Você não comanda mais as próprias mãos.")
+  end
+  turno_do_inimigo(false)
+end
+
+-- FRENESI (versão mínima): sem controle. Um ataque automático por turno, sem
+-- menu/esquiva/fuga, até a fúria passar. Ver sistemas.md > Fúria.
+local function atacar_em_frenesi()
+  logar("A fúria toma seus músculos. Você avança sem querer avançar.")
+  local r = combate.atacar(jogo.jogador, jogo.inimigo, jogo.arma_jogador)
+  combate.aplicar(jogo.inimigo, r)
+  logar(frase("Você", "o bandido", r))
+  if not jogo.inimigo:vivo() then
+    jogo.acabou = "vitoria"; logar("O bandido tomba."); return
+  end
+  jogo.jogador:passar_turno_frenesi()
+  turno_do_inimigo(false)
+end
+
 local function navegar_submenu(tecla)
   local n = #jogo.submenu.opcoes
   if tecla == "up" then
@@ -179,7 +223,11 @@ local function navegar_submenu(tecla)
     local i = jogo.submenu.selecao
     local id = jogo.submenu.acoes[i]
     jogo.submenu = nil
-    if id then transformar_jogador(id) end  -- nil = "Voltar", não consome o turno
+    if type(id) == "table" and id.furia then
+      usar_furia_jogador(id.furia)
+    elseif id then
+      transformar_jogador(id)  -- nil = "Voltar", não consome o turno
+    end
   end
 end
 
@@ -191,6 +239,16 @@ function love.keypressed(tecla)
 
   if jogo.submenu then
     navegar_submenu(tecla)
+    return
+  end
+
+  -- FRENESI: sem menu. Enter/Espaço só avança o ataque automático.
+  if jogo.jogador:em_frenesi() then
+    if tecla == "return" or tecla == "space" then
+      atacar_em_frenesi()
+    elseif tecla == "escape" then
+      love.event.quit()
+    end
     return
   end
 
@@ -241,6 +299,9 @@ function love.draw()
     love.graphics.setColor(COR.destaque)
     local msg = ({ vitoria = "VITÓRIA", morte = "VOCÊ MORREU", fuga = "VOCÊ FUGIU" })[jogo.acabou]
     love.graphics.printf(msg .. "   (Esc para sair)", 0, 440, L, "center")
+  elseif jogo.jogador:em_frenesi() then
+    love.graphics.setColor(COR.inimigo)
+    love.graphics.printf("FRENESI — você não se controla. (Enter)", 0, 440, L, "center")
   elseif jogo.submenu then
     for i, nome in ipairs(jogo.submenu.opcoes) do
       local x = 56 + (i - 1) * 160

@@ -20,10 +20,17 @@ Duas frentes que compartilham o **mesmo cérebro**:
 (2) validar que funciona e é divertido → (3) plugar a camada visual no `jogo2d/`.
 Nunca prototipar direto no visual (caro/lento); o console existe pra isso.
 >
-> **Já implementado e validado em código** (`jogo/core/`, testado em `jogo/testes.lua`):
-> fórmula de teste (atributo + habilidade + 1d3 com vacilo), Força de Vontade
-> (base/pool), ficha de atributos e o relógio de tempo. As tabelas de probabilidade
-> do teste conferem com a sensação pretendida.
+> **Já implementado e validado em código** (`jogo/core/`, ~345 testes em
+> `jogo/testes.lua`): fórmula de teste (atributo + habilidade + 1d3 com vacilo),
+> Força de Vontade (base/pool), ficha de atributos, relógio de tempo, EXP/níveis,
+> combate por turnos (3 faixas), perícias e HP secreto. **Recursos por raça
+> (esqueleto):** Fúria + Frenesi + Umbra (lobisomem); Sonhos + Quebras + Conceitos
+> & Fusão/spellmaking (mago); Sangue + Geração + diablerie + Elevação + Dominatio +
+> Besta/acalmar + alimentar/metabolismo (vampiro). **Universais:** Humanidade +
+> marcações, Besta (10 em todos), Sagrado (poder + ferida sagrada que trava cura
+> sobrenatural). O que resta é sobretudo CONTEÚDO (catálogos data-driven vazios) e
+> ganchos futuros marcados ⚪ ao longo do documento. As tabelas de probabilidade do
+> teste conferem com a sensação pretendida.
 
 ---
 
@@ -422,8 +429,375 @@ Categorias fechadas para o protótipo. **A definir por habilidade:** o atributo-
 está dado pela categoria; falta o *grind* (usos→nível) de cada uma — definido manualmente,
 varia por habilidade (ex.: Intimidação rápida; Esgrima lenta).
 
-## 5. Recursos por Raça  ⚪
-_(ex.: Sangue pra vampiro, o preço da realidade pro mago) — a definir._
+## 5. Recursos por Raça  🟡 (em construção, um par por vez)
+
+Cada raça/existência sobrenatural tem um **par recurso & preço** (ver seção 4,
+Atributos secundários) — o recurso é o que você gasta pra fazer coisas, o preço
+é o que acumula como consequência. Os pares:
+
+- 🩸 Vampiro — **Sangue & Humanidade**
+- 🐺 Lobisomem — **Fúria & Umbra**
+- 🌌 Mago — **Sonhos & Quebras**
+- 👹 Abominação — **Ego & Corrupção**
+
+**Escala do lado "recurso" (Sangue, Sonhos, Fúria, Ego):** mesma régua 0–10 dos
+atributos gerais, MAS com um teto que pode ser menor que 10 dependendo do
+indivíduo (ex.: um vampiro de geração baixa/"ralé" pode ter Sangue máximo 2,
+não 10 — o teto varia por geração/linhagem, não é fixo pra raça inteira).
+Exceção: **Ego não segue essa lógica.** Não é treinado nem tem teto variável —
+todo Abominação **começa direto no 10** (é o poder mais forte que existe; não
+faz sentido ele "subir").
+
+### Ego & Corrupção (Abominação) — definido
+
+- **Ego fixo em 10.** Não sobe por uso nem por nível; nasce no teto.
+- **Usar o poder do Ego sobe Corrupção.** Mecanicamente, **custo fixo por uso**
+  (a lore explica o preço como proporcional ao tamanho do que você nega ao
+  destino, mas por gameplay foi simplificado pra um custo fixo — mais simples
+  de balancear).
+- **Corrupção é estritamente uma via — nunca desce.** Não existe cura,
+  redenção ou reset. É um relógio que só anda pra frente.
+- **Corrupção atinge 10 → morte permanente, total, sem volta.** Narrativamente
+  é a fábula do personagem sendo apagada até a origem — a ponto de ele nunca
+  ter existido. Não é "game over" comum: é permadeath de verdade (ver lore.md
+  > Abominação/Ego).
+
+### Humanidade — implementado
+
+**Todo ser TEM um valor de Humanidade** (0–10), mas ela só importa
+mecanicamente de dois jeitos:
+1. **Pro vampiro**, é o recurso-preço de verdade — afeta como ele joga (ver
+   abaixo).
+2. **Pra qualquer um** (humano, vampiro, mago, lobisomem...), é o número
+   escondido que checa a elegibilidade ao poder **Sagrado** ao chegar em 10
+   (ver `lore.md`: fé verdadeira e intensa gera Sagrado, independente de
+   raça/religião — Humanidade 10 é a condição pra isso acontecer).
+
+Pras raças que não são vampiro, Humanidade não gera os efeitos sociais abaixo
+— quem cuida da vida social/percepção alheia delas é a **Reputação** (seção 7,
+ainda ⚪), um sistema separado. **No motor, Humanidade é UNIVERSAL** (`self.humanidade`
+existe em toda ficha, todo mundo começa em 7 — `ficha.HUMANIDADE_INICIAL`) — o
+que muda por raça é só o EFEITO de tê-la baixa/alta, não o número em si.
+
+**Ganha/perde por MARCAÇÕES, não direto** (`ficha:marcar_humanidade`, ver
+`data/manchas.lua`): um ato sombrio isolado não pune — ele deixa 1 marcação;
+só ao acumular `MARCACOES_POR_HUMANIDADE` (3) a Humanidade cai 1 de verdade e
+a contagem zera. **Diablerie é a ÚNICA exceção**: tira 1 de Humanidade DIRETO,
+sem passar pela marcação (`ficha:diablerizar` já aplica isso). Quais atos
+mancham (matar sem motivo, roubar, mentir sob juramento...) ainda ⚪ — o
+catálogo em `data/manchas.lua` está vazio esperando conteúdo.
+
+**Efeito narrativo gradual (Humanidade baixa) vale só pro VAMPIRO por ora:**
+quanto mais baixa, menos empático o vampiro fica, mais distante das pessoas,
+mais os outros notam que tem algo estranho nele, mais difícil ser uma
+criatura sociável à noite. Segue o princípio "sinta pela narrativa" (ver
+Filosofia de Design). Ainda não conectado a nenhuma UI (número existe, a
+reação do mundo a ele ainda não).
+
+### Sagrado — implementado (v0: só Humanidade, mais requisitos vêm depois)
+
+Fé verdadeira e intensa gera Sagrado (ver `lore.md` > Eden) — independe de
+raça/religião, **UNIVERSAL** (qualquer ser pode ter, não só quem "acredita"
+de fato ainda — isso é requisito futuro).
+
+- **v0 PROVISÓRIO: único requisito é bater Humanidade 10** (`ficha:elegivel_sagrado`).
+  Mais requisitos (fé de verdade, algum gatilho narrativo) virão depois —
+  por ora é só o número.
+- **HISTERESE de propósito** (`ficha:tem_sagrado`, `ficha:_atualizar_sagrado`,
+  chamada automaticamente a cada `ganhar_humanidade`/`perder_humanidade`):
+  **ganha** ao bater 10; **só perde se cair abaixo de 9** (8 ou menos) —
+  ficar exatamente em 9 mantém o que já tinha. Evita "piscar" ligado/desligado
+  com flutuação pequena de Humanidade. O estado também é sincronizado no fim de
+  `ficha.nova` — uma ficha criada já em 10 (ex.: NPC santo) reconhece o Sagrado
+  no ponto de partida, sem esperar a 1ª mudança de Humanidade.
+- **Nível 1-5 — IMPLEMENTADO** (`ficha:sagrado_nivel_atual`, `ficha:ganhar_sagrado`).
+  Começa em **1** na primeira vez que o Sagrado é concedido (`ficha.SAGRADO_NIVEL_MAX = 5`).
+  Sobe por ações boas feitas DEPOIS de já ter Humanidade 10 — é a MESMA fonte
+  de pontos que subiria Humanidade, mas como ela já está no teto, o ganho vira
+  nível de Sagrado em vez (gatilho de conteúdo — quais ações contam — ainda
+  ⚪, só o mecanismo existe). **Não reseta**: perder e reconquistar o Sagrado
+  (histerese acima) mantém o nível já treinado.
+- **Ataque de Sagrado — IMPLEMENTADO** (`core/sagrado.lua:tentar`, espelha
+  `core/dominatio.lua`/`core/magia.lua` na estrutura). **SEM CUSTO** nenhum
+  (nem Sangue, nem Sonhos, nem Fúria — só precisa ter o Sagrado; bate com
+  "poder ilimitado" da lore). Teste: `nível de Sagrado + 1d3 + floor(Vontade/2)`,
+  comparado com a **Força de Vontade MÁXIMA do alvo** (`ficha:defesa_mental`
+  — a base, não a pool gastável). Dano no acerto: `nível × DANO_POR_NIVEL (5,
+  PROVISÓRIO) + margem` — pensado pra ser um DPS forte de verdade mesmo
+  contra lobisomem/mago de nível alto (ver tabela de probabilidade em
+  `testes.lua`; nível 1 já bate como uma arma boa, nível 5 chega perto de
+  derrubar quase qualquer coisa se acertar).
+- **Ferida sagrada — IMPLEMENTADA** (`ficha:sofrer_sagrado`, diferente de
+  `sofrer` comum): o dano do Sagrado **trava um pedaço do teto de cura
+  SOBRENATURAL** do alvo (regen passiva do lobisomem, Sangue do vampiro,
+  futura magia) — `ficha:teto_cura_sobrenatural()` = `hp_max() - dano_sagrado`,
+  e toda cura sobrenatural (`regenerar`, `regenerar_turno`, `curar_com_sangue`)
+  já respeita esse teto. **Impossível de curar por meios sobrenaturais** — só
+  cura MUNDANA (ex.: Medicina — ⚪, ainda não implementada) resolve a ferida
+  em si (`ficha:reduzir_dano_sagrado`, mecanismo pronto, gatilho de conteúdo
+  ainda não existe).
+- Ainda não ligado a nenhuma UI (console/jogo2d) — só motor + testes, seguindo
+  o fluxo de sempre.
+
+### Sangue, Geração & Disciplinas gerais (Vampiro) — implementado (esqueleto)
+
+- **Teto sempre 10**, igual aos atributos gerais — **geração NÃO reduz o teto**
+  pro jogador (só Caim e os Iluminados da Sanatio escapam da régua 0-10 de
+  vez, como lendas > 10; ver seção 4). Geração baixíssima/"ralé" com teto 2-3
+  é coisa raríssima de NPC, não acontece com jogador.
+- **Pool inicial: 5** (`ficha.SANGUE_INICIAL`), teto 10 (`ficha.SANGUE_MAX`).
+- **Geração do jogador começa entre 6 e 8** (`ficha.nova({geracao=N}, "vampiro")`
+  — sem random dentro do construtor, de propósito, pra manter `ficha.nova`
+  determinística; quem cria a ficha escolhe o número). Não tem limite
+  superior — quanto maior o número, mais "ralo"/fraco/próximo de humano o
+  sangue fica (na régua extrema, tão diluído que o vampiro nem precisa mais
+  se alimentar nem consegue transformar ninguém — muito além de 8, não é
+  preocupação agora).
+- **Diablerie baixa a geração** de quem consome até (no mínimo) a geração de
+  quem foi consumido (`ficha:diablerizar(geracao_vitima)` — já aplica o custo
+  de Humanidade junto, ver acima).
+- **Cura gasta Sangue — IMPLEMENTADA** (`ficha:curar_com_sangue`,
+  `modo_regen() == "escolha"`): gasta **1 Sangue** e cura HP conforme a
+  geração (`ficha.cura_por_geracao`) — mais perto de Caim, mais cura por gota:
+  `8-7 -> 2 · 6-5 -> 4 · 4-3 -> 6 · 2-1 -> 8 · 0 (Caim) -> 10`. Números
+  provisórios (balanceamento). É por ESCOLHA (não passivo): o vampiro decide
+  queimar Sangue pra curar. **Custo de turno — PROVISÓRIO, simplificado por
+  ora:** no menu Habilidades, Curar NÃO gasta o turno (o vampiro pode curar e
+  ainda agir no mesmo turno). A versão final vai exigir um teste ou gastar 1
+  de Força de Vontade pra curar sem custo de turno — cura "de graça e sem
+  risco" é só temporário, pra simplificar enquanto o resto do combate ainda
+  tá em esqueleto.
+- **Alimentar-se — IMPLEMENTADO** (`ficha:alimentar(ate_a_morte)`):
+  beber sem matar dá **+2 Sangue** (`SANGUE_POR_GOLE`); **sugar até a morte**
+  dá **+3** (`SANGUE_POR_MORTE`) MAS deixa **1 mancha** de Humanidade (matar
+  corrói — ver Marcações acima). Respeita o teto 10.
+- **Metabolismo — IMPLEMENTADO** (`ficha:passar_dia`): o vampiro perde
+  **1 Sangue por "dia"** (`SANGUE_POR_DIA`) só de existir. Se o Sangue
+  chega a **0 → Frenesi de fome** (automático, a fome vence — reaproveita
+  `entrar_frenesi`). O gatilho de "dia" real ainda não existe (sem
+  calendário/lua); só o mecanismo (`passar_dia`) está pronto.
+
+**Disciplinas gerais** (todo vampiro tem as 3; ver `lore.md` > Vampiros):
+- 🌀 **Dominatio — IMPLEMENTADA (versão mínima: stun básico).** Ataque mental
+  pelo olhar (`core/dominatio.lua:tentar`, espelha combate.lua/magia.lua).
+  Custa **1 Sangue fixo** por tentativa (gasta mesmo se falhar ou for
+  bloqueada — "você tentou"). Teste: **NÍVEL do atacante + 1d3** vs a
+  **defesa mental do alvo** (`ficha:defesa_mental`, a base estável de
+  Vontade). Sucesso **atordoa o alvo por 2 turnos** (`ficha:atordoar` — novo
+  estado genérico "Atordoado": perde a vez por completo, diferente de
+  Frenesi que ainda age no automático). **Bloqueio automático** (nem rola o
+  dado): não funciona contra vampiro de geração MENOR (mais forte/perto de
+  Caim) que o atacante — ver `lore.md`: "você é fraca demais pra dominar
+  minha mente". Profundidade real (comandos específicos, resistência
+  graduada) fica pra depois — por ora é só o stun.
+- 🐺 **Besta — parcialmente IMPLEMENTADA (verbo "acalmar").** A "Besta" é a
+  força animadora que TODO ser tem (não é alma, mas parecido — sem ela, é só
+  carne). **Valor universal = 10, igual em todos** (`ficha.BESTA_INICIAL`;
+  não é fonte de poder — a diferença vem dos atributos). Zerá-la = "só carne"
+  (`ficha:so_carne`; efeito de morte/catatonia ⚪). A disciplina Besta (só
+  vampiro) manipula a Besta com três verbos:
+  - **Acalmar — IMPLEMENTADO** (`ficha:acalmar_besta`): gasta **1 Sangue** e
+    dá **IMUNIDADE total ao Frenesi por 3 turnos** (mesmo com Sangue 0 — ver
+    Frenesi do vampiro abaixo). Não empilha.
+  - **Remover / Absorver — ⚪** (arrancar/roubar a Besta alheia → dano à
+    essência / lifesteal em Sangue). Só o alvo universal (Besta 10 em todos)
+    está pronto; os verbos em si ficam pra depois.
+- ⚡ **Elevação — IMPLEMENTADA.** Buff temporário em **Força, Vitalidade E
+  Agilidade AO MESMO TEMPO** — não é escolha de um atributo só, os 3 sobem
+  juntos numa ativação. Custo **fixo de 1 Sangue** (não escala como a Fúria).
+  O bônus escala com a geração e **pode passar do teto 10** (só enquanto
+  ativo): `8-7 -> +1 · 6-5 -> +2 · 4-3 -> +3 · 2-1 -> +4 · 0 (Caim, teórico) -> +5`.
+  Dura **2 turnos** e reverte sozinho (soma/subtrai direto nos 3 atributos
+  reais — por isso já afeta defesa/HP/dano automaticamente, sem precisar
+  mexer em `core/combate.lua`). Não pode reativar enquanto já tem uma ativa
+  (`ficha.ativar_elevacao` / `elevacao_ativa` / `passar_turno_elevacao`).
+
+### Frenesi do vampiro — implementado (esqueleto mínimo)
+
+Diferente do lobisomem (chance rolada ao gastar Fúria), o Frenesi do vampiro
+é **DETERMINÍSTICO**: dispara quando o **Sangue chega a 0** (a fome vence —
+`ficha:em_risco_frenesi_vampiro()`; a Besta acalmada dá imunidade a isso, ver
+acima). Reaproveita o MESMO estado de Frenesi já construído pro lobisomem
+(`entrar_frenesi`/`em_frenesi`/`passar_turno_frenesi`, 2 turnos) — só o
+gatilho muda, a consequência (auto-ataque) é a mesma versão mínima.
+**Frenesi (de ambas as raças) será reformulado no futuro:** atacar aliados,
+sair do combate e atacar vilarejos (com dano à Reputação/jogador) — não
+implementado ainda, decisão consciente de adiar até esse conteúdo existir.
+
+### Fúria (Lobisomem) — definido (qualitativamente; números ⚪)
+
+- **Recurso ativo, gasto em combate.** Ao gastar, buffa os próprios ataques
+  (dano/acerto/redução de dano) — quanto mais gasta de uma vez, maior o benefício.
+  (Cogitou-se dar turnos extras, mas foi DESCARTADO por balanceamento — turno extra
+  desequilibra combate por turnos; ver a decisão detalhada mais abaixo.)
+- **Risco: Frenesi.** Gastar Fúria SEMPRE tem chance de gerar Frenesi (nunca é
+  100% seguro), e esse risco:
+  - **sobe** com o quanto é gasto NUMA jogada só (gastar muito de uma vez é
+    mais arriscado que gastar pouco);
+  - **desce** conforme a Fúria do personagem é mais alta (mais Fúria = mais
+    controle, mais seguro gastar o mesmo tanto).
+  - **Não é cumulativo dentro da mesma luta** — não tem "memória" de turnos
+    anteriores; cada gasto é avaliado isolado, sem histórico pesando.
+- **Frenesi (efeito):** perde o controle — pode atacar aliados, fugir da
+  batalha, ou (fora de combate/escala maior) até dizimar um vilarejo.
+- **Filosofia:** "tentador e recompensador" — poder real na mão, com um risco
+  real, não decorativo.
+- **Não tem base/pool separados como Vontade** — é o próprio atributo sendo
+  gasto direto (como o Sangue do vampiro). Começa em **5**, teto **10**.
+- **Recarrega em lua cheia, em momentos de estresse (dano crítico ou situações
+  específicas) e a cada novo dia.** Implementado no motor só a função de
+  recarregar (`ficha:recarregar_furia`) — os GATILHOS concretos (calendário,
+  fases da lua, detectar "dano crítico") ainda não existem, porque o jogo
+  ainda não tem sistema de dias/lua. Ninguém chama a função sozinho ainda.
+- **Fórmula de risco (PROVISÓRIA, `core/ficha.lua:risco_frenesi`):**
+  `risco = quanto_gasto / furia_atual` (antes do gasto), capado em 100%.
+  Gastar tudo de uma vez sempre bate 100%. Já respeita as duas regras acima;
+  ajustar depois de sentir jogando (tabela de probabilidade em `testes.lua`).
+- **Buff de combate IMPLEMENTADO, versão PROVISÓRIA pra testar o recurso**
+  (menu Habilidades, nas duas UIs). O jogador escolhe um NÍVEL de 1 a
+  **`FURIA_GASTO_MAX` = 5** (teto por ativação — mesmo tendo mais de 5 de
+  Fúria sobrando, não dá pra gastar mais que 5 de uma vez). O custo em Fúria
+  é igual ao nível. **Dura `FURIA_DURACAO_TURNOS` = 3 turnos** (não é mais
+  "só o próximo ataque" — ativar de novo enquanto já ativo SUBSTITUI nível e
+  reinicia a duração, não acumula). **Sem turnos extras** — decidido que o
+  recurso só afeta dano/acerto/redução de dano, nunca ações a mais.
+  - **Tabela por nível, NÃO linear/cumulativa** (`ficha.FURIA_TABELA_DANO` /
+    `FURIA_TABELA_REDUCAO`):
+
+    | nível | dano  | acerto | dano tomado |
+    |-------|-------|--------|--------------|
+    | 1     | +3    | -1     | —            |
+    | 2     | +4    | -1     | —            |
+    | 3     | +5    | -1     | —            |
+    | 4     | +5    | -1     | -3           |
+    | 5     | +5    | -1     | -5           |
+
+    O acerto é sempre -1 (não escala). O dano trava em +5 a partir do nível 3
+    — o que os níveis 4 e 5 compram a mais é redução de dano TOMADO (tipo
+    armadura temporária: não muda se te acertam, só quanto dói), não mais
+    dano. É essa dualidade (ataque puro nos níveis baixos, ataque+defesa nos
+    altos) que diferencia Fúria de Sangue — Sangue é recurso
+    controlado/administrado (geração, disciplinas), Fúria é aposta com risco
+    real (Frenesi) e a decisão de "quanto arriscar" a cada ativação.
+  - O -1 de acerto reduz a MARGEM (que entra no dano total) — o efeito
+    líquido no dano geralmente é um pouco menor que o bônus bruto da tabela,
+    e em ataques na borda pode até empurrar de "total" pra "parcial" (pior).
+    Intencional pela fórmula existente, não um erro.
+  - **Frenesi IMPLEMENTADO (versão mínima), nas duas UIs.** Ao ativar Fúria,
+    rola-se o risco (`ficha:rolar_frenesi`, sobre a Fúria atual, ANTES do gasto).
+    Se disparar, o personagem **entra em Frenesi** (`entrar_frenesi`) e perde o
+    CONTROLE por `FRENESI_DURACAO_TURNOS` = 2 turnos: o jogo ataca no automático
+    (sem menu/esquiva/fuga) até passar. As versões ricas — atacar aliados, fugir,
+    dizimar vilarejo — ficam pra quando existir esse conteúdo (não há aliados nem
+    vilarejos jogáveis ainda).
+
+### Umbra (Lobisomem) — implementado (esqueleto; conteúdo dos poderes ⚪)
+
+- **Funciona como uma PERÍCIA, não como Fúria.** Não se gasta — só sobe, nunca
+  desce. Representa a conexão/sintonia do lobisomem com a Umbra, o plano onde
+  ficam Gaia e os espíritos da natureza (Gaia é, na prática, a religião dos
+  lobisomens). Umbra alta destrava artefatos espirituais e poderes xamânicos
+  (lista concreta ainda ⚪ — nenhum poder específico definido/implementado).
+- **Escala 0–10, igual aos outros.** Todo lobisomem jogador **começa em 1**.
+  Nenhuma outra raça pode ter Umbra (nem ganhar depois — é exclusivo da
+  raça, ao contrário de Sangue/Sonhos que são consequência de uma
+  transformação e por isso, em tese, outra raça poderia um dia adquirir).
+- **Sobe por quests específicas de Gaia** (`ficha:ganhar_umbra`) — versão
+  PROVISÓRIA: o método existe e funciona, mas nenhuma quest de verdade chama
+  ele ainda (não há conteúdo de campanha ligado a isso). Comparável ao
+  `core/tempo.lua`: mecanismo pronto, gatilho de conteúdo pendente.
+- **REGRA GERAL DE VISIBILIDADE (vale pra todos os recursos secundários, não
+  só Umbra):** "visibilidade segue a agência" (mesmo princípio já usado pras
+  perícias comuns, seção 4.5). Fúria é VISÍVEL porque o jogador a controla
+  ativamente (escolhe quanto gastar a cada ativação). Umbra, Humanidade e
+  Quebras são OCULTAS — ninguém vê o número bruto, nem o vampiro vê sua
+  própria Humanidade — porque sobem/descem como consequência de ações, não
+  por escolha direta de "gastar X agora". O jogador sente o efeito pela
+  narrativa (ex.: fica mais estranho, mais forte em rituais), nunca lê o
+  valor cru.
+
+### Sonhos (Mago) — implementado
+
+- **Recurso ativo, é a mana.** Gasto pra manipular a realidade (ver `lore.md`
+  > Magos). **Sem teto** (diferente de Sangue/Fúria), mas **nunca abaixo de
+  1** (`ficha.SONHOS_MINIMO`) — o mago não "seca" de vez. Começa em **1**.
+  `ficha:gastar_sonhos` / `ficha:recarregar_sonhos` / `ficha:sonhos_atual`.
+
+### Quebras (Mago) — implementado (esqueleto do motor; conteúdo dos debuffs ⚪)
+
+- **Sobe em FALHA FEIA de conjuração** (`core/magia.lua:conjurar`) — não é
+  qualquer falha. Fórmula do teste: `sonhos_atual (DEPOIS de pagar o custo)
+  + vontade + 1d3`, comparado com a `dif` da magia. Falha = resultado < dif.
+  - **INTENCIONAL: magia cara é mais difícil de acertar.** Como o Sonhos que
+    SOBRA (pós-custo) entra no teste, gastar muito te deixa "no limite" e
+    derruba a própria chance. Somado ao fato de que falha feia de magia cara
+    gera MAIS Quebras, a magia poderosa pune duas vezes (difícil de acertar +
+    dói mais ao errar). É a lore em mecânica ("quanto maior o rasgo, mais a
+    realidade cobra") e premia o mago comedido — que acumula Sonhos antes da
+    magia grande — em vez do afoito (ecoa "os melhores magos usam magia de
+    forma mínima").
+  **Falha FEIA** = errou por MAIS que metade da dificuldade (arredondada pra
+  baixo) — errar por pouco ("quase passei") não gera Quebras.
+- **Quantidade de Quebras por falha feia escala com o CUSTO da magia**, em
+  degraus de 5 (`magia.quebras_por_falha`): custo 1-5 → 1 Quebra; 6-10 → 2;
+  11-15 → 3; sucessivamente. Magia mais cara falhada dói mais.
+- **Pode DESCER com o tempo** (`ficha:reduzir_quebras`), diferente da
+  Corrupção (que só sobe) — se o mago passa um tempo sem tomar Quebras
+  novas, ela se reduz sozinha (taxa/gatilho exatos ⚪, só o mecanismo existe).
+- **Teto 10 → Cemitério dos Sonhos, permadeath total** (`ficha:no_cemiterio_dos_sonhos`;
+  ver `lore.md` > Mundus/Cemitério dos Sonhos) — mesmo desfecho fatal do
+  Ego/Corrupção, mas chegar lá é reversível ao longo do caminho (Quebras
+  desce), diferente da Corrupção (que nunca desce).
+- **Efeito é ALEATÓRIO, mas a gravidade escala com quanto se ganha DE UMA
+  VEZ** (não com o total acumulado): 1 Quebra ganha de uma vez é sempre algo
+  leve — dano ou um debuff (alucinação/envelhecimento). Ganhar 2+ de uma vez
+  (magia mais cara falhada feio) pode ser bem maior — incluindo o
+  **Paradoxo**: um clone maligno do próprio mago se forma e ataca a reputação
+  do jogador (não o personagem em si — é meta, mira o jogador). Lista de
+  debuffs possíveis: dano, alucinações, envelhecimento, pesadelos, Paradoxo.
+  A definir: tabela de sorteio exata (chance de cada um por quantidade
+  ganha) — ainda NÃO implementado, só o número de Quebras ganhas está pronto.
+
+### `core/magia.lua` e `data/magias.lua` — motor pronto, conteúdo em aberto
+
+`core/magia.lua` resolve uma conjuração (espelha `core/combate.lua`):
+`magia.conjurar(conjurador, feitico, rng)` devolve se conjurou, se foi falha
+feia, e quantas Quebras gerou (já aplicadas na ficha). `data/magias.lua` é o
+catálogo data-driven (`nome`, `custo`, `dif` por magia) — **propositalmente
+vazio**, o conteúdo das magias é criativo e fica por conta de quem escreve.
+
+### Conceitos & Fusão (Spellmaking) 🟢 (motor pronto; conceitos ⚪)
+
+Inspiração: a criação de magia de Morrowind — mas **mais livre**. O mago
+**não aprende feitiços prontos**: aprende **CONCEITOS** (verdades fundamentais
+do universo — "manipular o atrito", "endurecer a matéria"...) e, meditando,
+**FUNDE** conceitos numa magia sua. Feitiço = fusão. Isso é *criação*, não
+seleção — infinitamente combinável.
+
+- **Sem escola de magia.** Qualquer mago pode fundir qualquer coisa que tenha
+  aprendido. O único limite é: ter os conceitos + ter Sonhos pra pagar (e o
+  risco de Quebras se falhar feio). Nada de "escola de fogo/gelo".
+- **Conceitos são raros e permanentes.** O mago ganha **1 crédito de conceito
+  a cada 2 níveis** (`ficha.CONCEITO_A_CADA_N_NIVEIS`; só em nível par).
+  Escolher QUAL conceito aprender é decisão do jogador — cada escolha molda
+  quem ele é como mago ("cada coisa importa"). Nasce sabendo NADA.
+- **Conceito = tijolo com parâmetros** (`data/conceitos.lua`): cada um tem
+  `peso` (contribuição ao CUSTO em Sonhos) e `dif` (contribuição à DIFICULDADE
+  do teste), mais `tags` opcionais (categorias pra sinergias futuras).
+- **Fusão** (`core/magia.fundir`): soma os `peso`s → custo, soma os `dif`s →
+  dificuldade, e adiciona **+1 de instabilidade por conceito extra** (o 1º não
+  penaliza; fundir muita coisa é mais caro E mais difícil — cada tijolo a mais
+  desestabiliza). Devolve uma magia no MESMO formato que `magia.conjurar` já
+  entende — a magia fundida é conjurada como qualquer outra, com Sonhos/Quebras
+  ligados. O jogador dá o **nome** à criação.
+- **A magia fundida é SALVA na ficha** (`ficha.magias_fundidas` via
+  `ficha:fundir_magia`): medita uma vez, reconjura sempre. Recompensa
+  planejamento (acumular conceitos certos → criar a magia certa).
+- Só o mago tem conceitos/fusão. `data/conceitos.lua` está **propositalmente
+  vazio** — QUAIS são os ~10 conceitos é trabalho criativo de quem escreve; o
+  motor funciona com qualquer conceito que siga o formato.
+- **A definir ⚪:** se o ato de *meditar/fundir* custa algo (tempo/turno/foco).
+  Hoje é livre. Se quiser dar peso narrativo, é um ajuste pequeno.
 
 ## 6. Combate por Turnos  🟢 (esqueleto)
 
@@ -438,7 +812,7 @@ Mesma mecânica pra jogador e inimigos (simétrica). Reaproveita o motor de test
   quando o atacante não supera a defesa; ver abaixo.)*
 
 ### Defesa (passiva, do alvo)
-- **Defesa = Vitalidade + 2** (talvez +1 — decidir jogando qual "sente" melhor).
+- **Defesa = Agilidade + 2** (talvez +1 — decidir jogando qual "sente" melhor).
 - **Armadura NÃO dá defesa.** Armadura apenas **reduz o dano tomado** (lógica pura:
   não te faz mais difícil de acertar, te faz sofrer menos quando acertam).
 
@@ -550,6 +924,28 @@ diferentes conforme o que se tem/sabe.
 Recompensa pensar antes de agir (examinar tudo de graça, planejar, executar certeiro) e
 pune o afobado (sair revirando/batendo gasta ações preciosas à toa). Primeira cena a usar
 isto: a Masmorra (tutorial). É o molde pras cenas futuras.
+
+### Transformação de raça — implementado (esqueleto)
+
+`ficha:transformar_raca(nova_raca, attrs)` (`core/ficha.lua`) converte uma
+ficha JÁ EXISTENTE pra outra raça, preservando tudo que o personagem já é
+(atributos, nível/exp, perícias, Humanidade, HP, forma, Besta, Vontade) — só
+a raça muda, e com ela os recursos específicos dela são iniciados do zero
+(mesma lógica de `ficha.nova`, extraída pra uma função interna reaproveitada
+pelas duas). Bate com a nota de `data/racas.lua`: vampiro/mago não são
+pontos de partida, só destinos.
+
+**Primeira demo jogável ponta a ponta, sem lore ainda** (`main.lua`):
+origem (monstro/homem) → se homem, masmorra (tutorial de fuga, ver seção
+6.7 e `campanha/principal/masmorra.md`) → **preso** = um vampiro (sem nome,
+genérico) aparece e transforma à força (`rota_vampirismo`); **fuga** = 1/3
+de chance (1d3, face 3) de os Sonhos notarem e transformar em mago
+(`tentar_sonhos`, ver `lore.md` > Magos: "buscam pessoas aptas... seja
+animal ou humano"). Os dois casos (e o lobisomem, que pula a masmorra)
+seguem pro mesmo primeiro combate (`primeiro_encontro`) — a ficha já
+carrega os recursos certos pro menu de Habilidades reconhecer a raça.
+Mago ainda não tem opções no menu de Habilidades (magia não está wired na
+UI de combate — ver Conceitos & Fusão); isso é esperado, não bug.
 
 ## 7. Reputação  ⚪
 _A definir._
