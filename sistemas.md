@@ -20,10 +20,17 @@ Duas frentes que compartilham o **mesmo cérebro**:
 (2) validar que funciona e é divertido → (3) plugar a camada visual no `jogo2d/`.
 Nunca prototipar direto no visual (caro/lento); o console existe pra isso.
 >
-> **Já implementado e validado em código** (`jogo/core/`, testado em `jogo/testes.lua`):
-> fórmula de teste (atributo + habilidade + 1d3 com vacilo), Força de Vontade
-> (base/pool), ficha de atributos e o relógio de tempo. As tabelas de probabilidade
-> do teste conferem com a sensação pretendida.
+> **Já implementado e validado em código** (`jogo/core/`, ~345 testes em
+> `jogo/testes.lua`): fórmula de teste (atributo + habilidade + 1d3 com vacilo),
+> Força de Vontade (base/pool), ficha de atributos, relógio de tempo, EXP/níveis,
+> combate por turnos (3 faixas), perícias e HP secreto. **Recursos por raça
+> (esqueleto):** Fúria + Frenesi + Umbra (lobisomem); Sonhos + Quebras + Conceitos
+> & Fusão/spellmaking (mago); Sangue + Geração + diablerie + Elevação + Dominatio +
+> Besta/acalmar + alimentar/metabolismo (vampiro). **Universais:** Humanidade +
+> marcações, Besta (10 em todos), Sagrado (poder + ferida sagrada que trava cura
+> sobrenatural). O que resta é sobretudo CONTEÚDO (catálogos data-driven vazios) e
+> ganchos futuros marcados ⚪ ao longo do documento. As tabelas de probabilidade do
+> teste conferem com a sensação pretendida.
 
 ---
 
@@ -455,7 +462,7 @@ faz sentido ele "subir").
   ter existido. Não é "game over" comum: é permadeath de verdade (ver lore.md
   > Abominação/Ego).
 
-### Humanidade — definido
+### Humanidade — implementado
 
 **Todo ser TEM um valor de Humanidade** (0–10), mas ela só importa
 mecanicamente de dois jeitos:
@@ -468,41 +475,154 @@ mecanicamente de dois jeitos:
 
 Pras raças que não são vampiro, Humanidade não gera os efeitos sociais abaixo
 — quem cuida da vida social/percepção alheia delas é a **Reputação** (seção 7,
-ainda ⚪), um sistema separado.
+ainda ⚪), um sistema separado. **No motor, Humanidade é UNIVERSAL** (`self.humanidade`
+existe em toda ficha, todo mundo começa em 7 — `ficha.HUMANIDADE_INICIAL`) — o
+que muda por raça é só o EFEITO de tê-la baixa/alta, não o número em si.
 
-**Efeitos abaixo valem só pro VAMPIRO:**
-- **Vampiro jogador começa em 7** no momento do Abraço. Antes disso, como
-  humano, ações da campanha já podem subir ou descer esse valor — o Abraço não
-  reseta pra um número fixo do nada, 7 é só o ponto de partida assumido pro
-  protótipo.
-- **Desce por:** diablerizar (**-1 fixo, permanente**, todo diablerie custa
-  isso não importa o resto), matar sem motivo, e ações maldosas em geral
-  (acumula tipo um contador — ex.: roubar também conta).
-- **Sobe por:** age bondosamente (não detalhado ainda quanto/quais ações
-  específicas contam — a definir quando a campanha for escrita).
-- **Efeito gradual, narrativo (não é um "game over" ao zerar):** quanto mais
-  baixa, menos empático o vampiro fica, mais distante das pessoas, mais os
-  outros notam que tem algo estranho nele, mais difícil ser uma criatura
-  sociável à noite. Segue o princípio "sinta pela narrativa" (ver Filosofia de
-  Design).
+**Ganha/perde por MARCAÇÕES, não direto** (`ficha:marcar_humanidade`, ver
+`data/manchas.lua`): um ato sombrio isolado não pune — ele deixa 1 marcação;
+só ao acumular `MARCACOES_POR_HUMANIDADE` (3) a Humanidade cai 1 de verdade e
+a contagem zera. **Diablerie é a ÚNICA exceção**: tira 1 de Humanidade DIRETO,
+sem passar pela marcação (`ficha:diablerizar` já aplica isso). Quais atos
+mancham (matar sem motivo, roubar, mentir sob juramento...) ainda ⚪ — o
+catálogo em `data/manchas.lua` está vazio esperando conteúdo.
 
-### Sangue (Vampiro) — definido
+**Efeito narrativo gradual (Humanidade baixa) vale só pro VAMPIRO por ora:**
+quanto mais baixa, menos empático o vampiro fica, mais distante das pessoas,
+mais os outros notam que tem algo estranho nele, mais difícil ser uma
+criatura sociável à noite. Segue o princípio "sinta pela narrativa" (ver
+Filosofia de Design). Ainda não conectado a nenhuma UI (número existe, a
+reação do mundo a ele ainda não).
+
+### Sagrado — implementado (v0: só Humanidade, mais requisitos vêm depois)
+
+Fé verdadeira e intensa gera Sagrado (ver `lore.md` > Eden) — independe de
+raça/religião, **UNIVERSAL** (qualquer ser pode ter, não só quem "acredita"
+de fato ainda — isso é requisito futuro).
+
+- **v0 PROVISÓRIO: único requisito é bater Humanidade 10** (`ficha:elegivel_sagrado`).
+  Mais requisitos (fé de verdade, algum gatilho narrativo) virão depois —
+  por ora é só o número.
+- **HISTERESE de propósito** (`ficha:tem_sagrado`, `ficha:_atualizar_sagrado`,
+  chamada automaticamente a cada `ganhar_humanidade`/`perder_humanidade`):
+  **ganha** ao bater 10; **só perde se cair abaixo de 9** (8 ou menos) —
+  ficar exatamente em 9 mantém o que já tinha. Evita "piscar" ligado/desligado
+  com flutuação pequena de Humanidade. O estado também é sincronizado no fim de
+  `ficha.nova` — uma ficha criada já em 10 (ex.: NPC santo) reconhece o Sagrado
+  no ponto de partida, sem esperar a 1ª mudança de Humanidade.
+- **Nível 1-5 — IMPLEMENTADO** (`ficha:sagrado_nivel_atual`, `ficha:ganhar_sagrado`).
+  Começa em **1** na primeira vez que o Sagrado é concedido (`ficha.SAGRADO_NIVEL_MAX = 5`).
+  Sobe por ações boas feitas DEPOIS de já ter Humanidade 10 — é a MESMA fonte
+  de pontos que subiria Humanidade, mas como ela já está no teto, o ganho vira
+  nível de Sagrado em vez (gatilho de conteúdo — quais ações contam — ainda
+  ⚪, só o mecanismo existe). **Não reseta**: perder e reconquistar o Sagrado
+  (histerese acima) mantém o nível já treinado.
+- **Ataque de Sagrado — IMPLEMENTADO** (`core/sagrado.lua:tentar`, espelha
+  `core/dominatio.lua`/`core/magia.lua` na estrutura). **SEM CUSTO** nenhum
+  (nem Sangue, nem Sonhos, nem Fúria — só precisa ter o Sagrado; bate com
+  "poder ilimitado" da lore). Teste: `nível de Sagrado + 1d3 + floor(Vontade/2)`,
+  comparado com a **Força de Vontade MÁXIMA do alvo** (`ficha:defesa_mental`
+  — a base, não a pool gastável). Dano no acerto: `nível × DANO_POR_NIVEL (5,
+  PROVISÓRIO) + margem` — pensado pra ser um DPS forte de verdade mesmo
+  contra lobisomem/mago de nível alto (ver tabela de probabilidade em
+  `testes.lua`; nível 1 já bate como uma arma boa, nível 5 chega perto de
+  derrubar quase qualquer coisa se acertar).
+- **Ferida sagrada — IMPLEMENTADA** (`ficha:sofrer_sagrado`, diferente de
+  `sofrer` comum): o dano do Sagrado **trava um pedaço do teto de cura
+  SOBRENATURAL** do alvo (regen passiva do lobisomem, Sangue do vampiro,
+  futura magia) — `ficha:teto_cura_sobrenatural()` = `hp_max() - dano_sagrado`,
+  e toda cura sobrenatural (`regenerar`, `regenerar_turno`, `curar_com_sangue`)
+  já respeita esse teto. **Impossível de curar por meios sobrenaturais** — só
+  cura MUNDANA (ex.: Medicina — ⚪, ainda não implementada) resolve a ferida
+  em si (`ficha:reduzir_dano_sagrado`, mecanismo pronto, gatilho de conteúdo
+  ainda não existe).
+- Ainda não ligado a nenhuma UI (console/jogo2d) — só motor + testes, seguindo
+  o fluxo de sempre.
+
+### Sangue, Geração & Disciplinas gerais (Vampiro) — implementado (esqueleto)
 
 - **Teto sempre 10**, igual aos atributos gerais — **geração NÃO reduz o teto**
   pro jogador (só Caim e os Iluminados da Sanatio escapam da régua 0-10 de
   vez, como lendas > 10; ver seção 4). Geração baixíssima/"ralé" com teto 2-3
   é coisa raríssima de NPC, não acontece com jogador.
-- **Pool inicial: 5** (metade do teto).
-- **Geração do jogador começa entre 6 e 8.** Não tem limite superior — quanto
-  maior o número, mais "ralo"/fraco/próximo de humano o sangue fica (na régua
-  extrema, tão diluído que o vampiro nem precisa mais se alimentar nem
-  consegue transformar ninguém — muito além de 8, não é preocupação agora).
+- **Pool inicial: 5** (`ficha.SANGUE_INICIAL`), teto 10 (`ficha.SANGUE_MAX`).
+- **Geração do jogador começa entre 6 e 8** (`ficha.nova({geracao=N}, "vampiro")`
+  — sem random dentro do construtor, de propósito, pra manter `ficha.nova`
+  determinística; quem cria a ficha escolhe o número). Não tem limite
+  superior — quanto maior o número, mais "ralo"/fraco/próximo de humano o
+  sangue fica (na régua extrema, tão diluído que o vampiro nem precisa mais
+  se alimentar nem consegue transformar ninguém — muito além de 8, não é
+  preocupação agora).
 - **Diablerie baixa a geração** de quem consome até (no mínimo) a geração de
-  quem foi consumido.
-- **Cura gasta Sangue** (`ficha:modo_regen() == "escolha"`) e a quantidade de
-  HP por ponto **escala inversamente com a geração** (mais perto de Caim =
-  cura mais por ponto). Número exato é fator de balanceamento — fica ⚪ por
-  ora, só a regra qualitativa já está valendo.
+  quem foi consumido (`ficha:diablerizar(geracao_vitima)` — já aplica o custo
+  de Humanidade junto, ver acima).
+- **Cura gasta Sangue — IMPLEMENTADA** (`ficha:curar_com_sangue`,
+  `modo_regen() == "escolha"`): gasta **1 Sangue** e cura HP conforme a
+  geração (`ficha.cura_por_geracao`) — mais perto de Caim, mais cura por gota:
+  `8-7 -> 2 · 6-5 -> 4 · 4-3 -> 6 · 2-1 -> 8 · 0 (Caim) -> 10`. Números
+  provisórios (balanceamento). É por ESCOLHA (não passivo): o vampiro decide
+  queimar Sangue pra curar. **Custo de turno — PROVISÓRIO, simplificado por
+  ora:** no menu Habilidades, Curar NÃO gasta o turno (o vampiro pode curar e
+  ainda agir no mesmo turno). A versão final vai exigir um teste ou gastar 1
+  de Força de Vontade pra curar sem custo de turno — cura "de graça e sem
+  risco" é só temporário, pra simplificar enquanto o resto do combate ainda
+  tá em esqueleto.
+- **Alimentar-se — IMPLEMENTADO** (`ficha:alimentar(ate_a_morte)`):
+  beber sem matar dá **+2 Sangue** (`SANGUE_POR_GOLE`); **sugar até a morte**
+  dá **+3** (`SANGUE_POR_MORTE`) MAS deixa **1 mancha** de Humanidade (matar
+  corrói — ver Marcações acima). Respeita o teto 10.
+- **Metabolismo — IMPLEMENTADO** (`ficha:passar_dia`): o vampiro perde
+  **1 Sangue por "dia"** (`SANGUE_POR_DIA`) só de existir. Se o Sangue
+  chega a **0 → Frenesi de fome** (automático, a fome vence — reaproveita
+  `entrar_frenesi`). O gatilho de "dia" real ainda não existe (sem
+  calendário/lua); só o mecanismo (`passar_dia`) está pronto.
+
+**Disciplinas gerais** (todo vampiro tem as 3; ver `lore.md` > Vampiros):
+- 🌀 **Dominatio — IMPLEMENTADA (versão mínima: stun básico).** Ataque mental
+  pelo olhar (`core/dominatio.lua:tentar`, espelha combate.lua/magia.lua).
+  Custa **1 Sangue fixo** por tentativa (gasta mesmo se falhar ou for
+  bloqueada — "você tentou"). Teste: **NÍVEL do atacante + 1d3** vs a
+  **defesa mental do alvo** (`ficha:defesa_mental`, a base estável de
+  Vontade). Sucesso **atordoa o alvo por 2 turnos** (`ficha:atordoar` — novo
+  estado genérico "Atordoado": perde a vez por completo, diferente de
+  Frenesi que ainda age no automático). **Bloqueio automático** (nem rola o
+  dado): não funciona contra vampiro de geração MENOR (mais forte/perto de
+  Caim) que o atacante — ver `lore.md`: "você é fraca demais pra dominar
+  minha mente". Profundidade real (comandos específicos, resistência
+  graduada) fica pra depois — por ora é só o stun.
+- 🐺 **Besta — parcialmente IMPLEMENTADA (verbo "acalmar").** A "Besta" é a
+  força animadora que TODO ser tem (não é alma, mas parecido — sem ela, é só
+  carne). **Valor universal = 10, igual em todos** (`ficha.BESTA_INICIAL`;
+  não é fonte de poder — a diferença vem dos atributos). Zerá-la = "só carne"
+  (`ficha:so_carne`; efeito de morte/catatonia ⚪). A disciplina Besta (só
+  vampiro) manipula a Besta com três verbos:
+  - **Acalmar — IMPLEMENTADO** (`ficha:acalmar_besta`): gasta **1 Sangue** e
+    dá **IMUNIDADE total ao Frenesi por 3 turnos** (mesmo com Sangue 0 — ver
+    Frenesi do vampiro abaixo). Não empilha.
+  - **Remover / Absorver — ⚪** (arrancar/roubar a Besta alheia → dano à
+    essência / lifesteal em Sangue). Só o alvo universal (Besta 10 em todos)
+    está pronto; os verbos em si ficam pra depois.
+- ⚡ **Elevação — IMPLEMENTADA.** Buff temporário em **Força, Vitalidade E
+  Agilidade AO MESMO TEMPO** — não é escolha de um atributo só, os 3 sobem
+  juntos numa ativação. Custo **fixo de 1 Sangue** (não escala como a Fúria).
+  O bônus escala com a geração e **pode passar do teto 10** (só enquanto
+  ativo): `8-7 -> +1 · 6-5 -> +2 · 4-3 -> +3 · 2-1 -> +4 · 0 (Caim, teórico) -> +5`.
+  Dura **2 turnos** e reverte sozinho (soma/subtrai direto nos 3 atributos
+  reais — por isso já afeta defesa/HP/dano automaticamente, sem precisar
+  mexer em `core/combate.lua`). Não pode reativar enquanto já tem uma ativa
+  (`ficha.ativar_elevacao` / `elevacao_ativa` / `passar_turno_elevacao`).
+
+### Frenesi do vampiro — implementado (esqueleto mínimo)
+
+Diferente do lobisomem (chance rolada ao gastar Fúria), o Frenesi do vampiro
+é **DETERMINÍSTICO**: dispara quando o **Sangue chega a 0** (a fome vence —
+`ficha:em_risco_frenesi_vampiro()`; a Besta acalmada dá imunidade a isso, ver
+acima). Reaproveita o MESMO estado de Frenesi já construído pro lobisomem
+(`entrar_frenesi`/`em_frenesi`/`passar_turno_frenesi`, 2 turnos) — só o
+gatilho muda, a consequência (auto-ataque) é a mesma versão mínima.
+**Frenesi (de ambas as raças) será reformulado no futuro:** atacar aliados,
+sair do combate e atacar vilarejos (com dano à Reputação/jogador) — não
+implementado ainda, decisão consciente de adiar até esse conteúdo existir.
 
 ### Fúria (Lobisomem) — definido (qualitativamente; números ⚪)
 
