@@ -69,7 +69,12 @@ local function iniciar_recursos_raca(self, attrs)
     -- Sonhos = mana (sem teto, mas nunca abaixo de SONHOS_MINIMO). Quebras =
     -- preço acumulado por falha feia de conjuração (0-10; 10 = Cemitério dos
     -- Sonhos, permadeath).
-    self.sonhos = ficha.SONHOS_INICIAL
+    -- Sonhos inicial = o que já foi CONQUISTADO antes de virar mago (matar,
+    -- explorar, quest — ver ficha:ganhar_conquista), nunca abaixo do piso
+    -- SONHOS_INICIAL. Quem nunca conquistou nada ainda começa exatamente no
+    -- piso (preso, sem conseguir gastar nada — ver sistemas.md; é o preço de
+    -- virar mago sem ter feito nada antes).
+    self.sonhos = math.max(ficha.SONHOS_INICIAL, self.conquistas or 0)
     self.quebras = 0
     -- Conceitos mágicos aprendidos (ids de data/conceitos.lua) e magias
     -- fundidas a partir deles (ver seção Conceitos & Fusão adiante). Começam
@@ -81,7 +86,7 @@ local function iniciar_recursos_raca(self, attrs)
     self.conceitos_pendentes = 0
   elseif self.raca == "vampiro" then
     -- Sangue & Geração (só vampiro; ver sistemas.md > Recursos por Raça).
-    -- Sangue = poder/sustento (gasto em disciplinas e Elevação). Geração =
+    -- Sangue = poder/sustento (gasto em estigmas e Elevação). Geração =
     -- distância de Caim (quanto MENOR, mais forte); diablerizar reduz.
     self.sangue = ficha.SANGUE_INICIAL
     -- attrs.geracao permite fixar (ex.: NPCs específicos); jogador começa
@@ -105,6 +110,14 @@ function ficha.nova(attrs, raca)
   --   base  = atributo "vontade" -> resistência mental (estável, é o máximo)
   --   pool  = pontos gastáveis pra rerrolar; começa cheio (= base)
   self.vontade_pool = self.atributos.vontade
+  -- Conquistas: contador UNIVERSAL (toda raça acumula, mesmo quem nunca vira
+  -- mago) — matar algo, explorar, completar quest, etc, cada evento soma 1
+  -- (ver ficha:ganhar_conquista). Tem que existir ANTES de
+  -- iniciar_recursos_raca: o mago usa esse acumulado como Sonhos inicial (ver
+  -- lá embaixo) — as conquistas de quando ainda era humano/lobisomem "viram"
+  -- Sonhos no momento da transformação (ecoa lore.md > Magos: os Sonhos já
+  -- observam quem é apto antes da pessoa saber).
+  self.conquistas = attrs.conquistas or 0
   iniciar_recursos_raca(self, attrs)
   -- Humanidade é UNIVERSAL — todo ser tem (ver sistemas.md > Humanidade). O
   -- número em si (0-10) e as marcações valem pra qualquer raça; o que é só do
@@ -121,9 +134,9 @@ function ficha.nova(attrs, raca)
   self.exp = 0   -- EXP acumulado RUMO ao próximo nível (zera ao subir)
   -- Forma atual. Só o lobisomem transforma; começa (e todos ficam) em "humanoide".
   self.forma = "humanoide"
-  -- Besta: a "força animadora" que TODO ser tem (ver sistemas.md > Disciplinas
+  -- Besta: a "força animadora" que TODO ser tem (ver sistemas.md > Estigmas
   -- > Besta). Igual em todos (10) — a diferença de poder vem dos atributos, não
-  -- da Besta. Alvo da disciplina Besta do vampiro (remover/absorver ⚪). Zerá-la
+  -- da Besta. Alvo do estigma Besta do vampiro (remover/absorver ⚪). Zerá-la
   -- = "só carne". Universal de propósito: qualquer criatura pode ser alvo.
   self.besta = ficha.BESTA_INICIAL
   -- HP começa cheio.
@@ -145,12 +158,20 @@ end
 --   nova_raca = "vampiro" ou "mago" (as duas transformações jogáveis hoje).
 --   attrs     = opcional; só usado por campos específicos da raça (ex.:
 --               {geracao = N} pro vampiro — ver iniciar_recursos_raca).
+-- Recusa (false + motivo) se a transformação violar a lore: vampiro e
+-- lobisomem NUNCA viram mago — os Sonhos só buscam quem ainda é humano (ou
+-- animal), nunca quem já é outra coisa sobrenatural (ver lore.md > Raças).
+-- Devolve true em qualquer transformação aceita.
 function ficha:transformar_raca(nova_raca, attrs)
+  if nova_raca == "mago" and (self.raca == "vampiro" or self.raca == "lobisomem") then
+    return false, "vampiro e lobisomem nunca viram mago (ver lore.md > Raças)"
+  end
   self.raca = nova_raca
   iniciar_recursos_raca(self, attrs or {})
   -- HP_BASE de humano/vampiro/mago é o mesmo (10), então não há reajuste de
   -- teto aqui — mas clampar é seguro caso isso mude no futuro.
   self.hp = math.min(self.hp, self:hp_max())
+  return true
 end
 
 -- Teto de nível de personagem (mesma régua dos atributos).
@@ -216,6 +237,38 @@ function ficha:subir_nivel(attr_a, attr_b)
     self.conceitos_pendentes = (self.conceitos_pendentes or 0) + 1
   end
   return true
+end
+
+-- ---- Conquistas (universal — toda raça acumula) ---------------------------
+-- Contador de eventos "vividos de verdade": matar algo, explorar um local,
+-- completar uma quest, etc. UNIVERSAL — toda ficha tem, mesmo quem nunca vira
+-- mago (humano/lobisomem/vampiro acumulam do mesmo jeito, só não usam pra
+-- nada ainda). É a via de progressão dos Sonhos do mago (ver
+-- iniciar_recursos_raca): o que já foi conquistado ANTES de virar mago vira o
+-- Sonhos inicial; e se JÁ é mago, cada conquista nova vira Sonhos na hora.
+-- Cada conquista vale exatamente 1, INDEPENDENTE de quanto EXP aquele mesmo
+-- evento também conceda (EXP e conquista são contadores separados, mesmo
+-- compartilhando o gatilho) — mantém Sonhos numa escala pequena e densa,
+-- sem herdar a escala grande do EXP (que chega a centenas).
+
+-- Quantas conquistas o personagem já teve (nunca desce).
+function ficha:conquistas_atual()
+  return self.conquistas or 0
+end
+
+-- Registra uma conquista. `quanto` (opcional, padrão 1) existe só por
+-- flexibilidade futura — hoje todo chamador deve passar 1 (ou nada), já que
+-- "cada conquista vale 1" é a regra confirmada.
+function ficha:ganhar_conquista(quanto)
+  quanto = quanto or 1
+  self.conquistas = (self.conquistas or 0) + quanto
+  -- Se já é mago, a conquista vira Sonhos IMEDIATAMENTE (a via real de
+  -- progressão do recurso — ver sistemas.md > Sonhos). Se ainda não é mago,
+  -- só acumula no contador universal, que "destrava" como Sonhos no momento
+  -- de virar (ver iniciar_recursos_raca). recarregar_sonhos já é seguro pra
+  -- quem não tem Sonhos (nil-safe, vira no-op).
+  self:recarregar_sonhos(quanto)
+  return self.conquistas
 end
 
 -- HP base por raça MORTAL. Padrão 10; lobisomem é mais resistente (15).
@@ -335,6 +388,43 @@ end
 -- Nível de uma perícia (0 se nunca usada/aprendida).
 function ficha:pericia(nome)
   return self.pericias[nome] or 0
+end
+
+-- ---- Perícias (aptidões mundanas, sobem por uso) ---------------------------
+-- Ver sistemas.md > Perícias. Perícia ≠ poder de raça — sobe por USO, rápido
+-- (diferente de atributo, que sobe por nível/EXP). Cada perícia tem seu
+-- próprio "grind" (quantos usos pra subir 1 nível), catalogado em
+-- data/pericias.lua; perícia fora do catálogo usa o padrão abaixo. Sem teto
+-- (perícia não segue a régua 0-10 dos atributos; teto ainda não definido).
+
+ficha.PERICIA_USOS_PADRAO = 5  -- grind padrão pra perícia sem entrada no catálogo (provisório)
+
+-- Quantos usos essa perícia precisa pra subir 1 nível. Consulta
+-- data/pericias.lua sob demanda (mesmo padrão de forma_atual com
+-- data/formas, pra evitar dependência circular no topo do arquivo).
+local function pericia_grind(nome)
+  local cat = require("data.pericias")
+  local entrada = cat[nome]
+  return (entrada and entrada.grind) or ficha.PERICIA_USOS_PADRAO
+end
+
+-- Registra 1 uso de uma perícia. QUALQUER tentativa conta, mesmo um erro —
+-- "cada uso... faz progredir" (ver sistemas.md), não só sucesso. Acumula um
+-- contador de uso por perícia; ao bater o grind daquela perícia, sobe 1
+-- nível e ZERA o contador (mesmo padrão de ficha:marcar_humanidade — acumula
+-- até o limiar, aí converte e reinicia). Devolve true se subiu de nível
+-- agora (pra quem chama decidir se narra a evolução — ver sistemas.md:
+-- "a evolução É anunciada", gatilho de texto ainda ⚪, só o mecanismo existe).
+function ficha:usar_pericia(nome)
+  if not nome then return false end
+  self.pericias_uso = self.pericias_uso or {}
+  self.pericias_uso[nome] = (self.pericias_uso[nome] or 0) + 1
+  if self.pericias_uso[nome] >= pericia_grind(nome) then
+    self.pericias_uso[nome] = 0
+    self.pericias[nome] = (self.pericias[nome] or 0) + 1
+    return true
+  end
+  return false
 end
 
 -- ---- Formas (lobisomem) ---------------------------------------------------
@@ -948,8 +1038,8 @@ function ficha:diablerizar(geracao_vitima)
   return true
 end
 
--- ---- Disciplinas gerais (vampiro) -------------------------------------------
--- Todo vampiro tem as 3 disciplinas gerais (ver lore.md > Vampiros):
+-- ---- Estigmas gerais (vampiro) -------------------------------------------
+-- Todo vampiro tem os 3 estigmas gerais (ver lore.md > Vampiros):
 --   Dominatio  — comandar/dominar a mente pelo olhar (fraca contra alvos
 --                mais fortes). Mecânica/fórmula do teste ainda ⚪.
 --   Besta      — manipula a "Besta": a força animadora que todo ser tem (não
@@ -1032,10 +1122,10 @@ function ficha:passar_turno_elevacao()
   return self.elevacao_turnos_restantes
 end
 
--- ---- Besta (força animadora universal / disciplina do vampiro) -------------
--- TODO ser tem Besta = 10 (a força animadora; ver sistemas.md > Disciplinas >
+-- ---- Besta (força animadora universal / estigma do vampiro) -------------
+-- TODO ser tem Besta = 10 (a força animadora; ver sistemas.md > Estigmas >
 -- Besta). Igual em todos — não é fonte de poder, é o que te mantém "mais que
--- carne". A disciplina Besta (só vampiro) manipula a Besta: hoje só ACALMAR a
+-- carne". O estigma Besta (só vampiro) manipula a Besta: hoje só ACALMAR a
 -- própria (resistir ao Frenesi); remover/absorver a dos outros ficam ⚪.
 
 ficha.BESTA_INICIAL = 10
@@ -1094,7 +1184,7 @@ end
 -- passar_turno_frenesi, 2 turnos) — só o gatilho muda. Versão mínima; será
 -- reformulada (atacar aliados, fugir pro vilarejo, reputação) quando esse
 -- conteúdo existir.
--- A disciplina Besta (ver acalmar_besta) dá IMUNIDADE total ao Frenesi
+-- O estigma Besta (ver acalmar_besta) dá IMUNIDADE total ao Frenesi
 -- enquanto acalmada (mesmo com Sangue 0) — reaproveita a mesma duração de 3
 -- turnos, sem precisar de um contador à parte.
 function ficha:em_risco_frenesi_vampiro()

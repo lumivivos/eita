@@ -10,6 +10,7 @@ local teste = require("core.teste")
 local formas = require("data.formas")
 local ficha = require("core.ficha")
 local dominatio = require("core.dominatio")
+local niveis = require("core.niveis")
 
 local ui = {}
 
@@ -19,7 +20,7 @@ local FORMAS_FERA = { "crino", "lupino", "bestial" }
 -- Submenu "Habilidades" do combate. Lobisomem: formas + Fúria. Vampiro:
 -- Elevação + Dominatio + Besta (acalmar). Retorna true se consumiu o turno,
 -- false se cancelou. Precisa do `inimigo`/`nomes` porque Dominatio mira o
--- adversário (as outras disciplinas de raça, até agora, eram só auto-buff).
+-- adversário (os outros estigmas de raça, até agora, eram só auto-buff).
 local function menu_habilidades(jogador, inimigo, nomes)
   -- Monta as opções conforme o estado atual.
   local opcoes, acoes = {}, {}
@@ -202,6 +203,14 @@ local function paragrafo(texto)
   console.linha("")
 end
 
+-- Concede as recompensas de vencer um combate: EXP (rumo a nível) e 1
+-- conquista (rumo a Sonhos, se um dia virar mago — ver sistemas.md > Sonhos).
+-- Só o jogador ganha — o inimigo é uma ficha descartada ao fim da luta.
+local function conceder_vitoria(jogador)
+  jogador:ganhar_exp(niveis.EXP_COMBATE_COMUM)
+  jogador:ganhar_conquista()
+end
+
 -- Cabeçalho do turno: estado do inimigo entre divisores.
 local function cabecalho(nomes, inimigo)
   console.linha(DIV)
@@ -251,6 +260,7 @@ function ui.lutar(jogador, inimigo, nomes, armas)
         console.linha(DIV)
         console.linha("")
         paragrafo(("%s tomba. Silêncio."):format(nomes.inimigo))
+        conceder_vitoria(jogador)
         console.pausar("    (Enter)")
         return "vitoria"
       end
@@ -273,6 +283,7 @@ function ui.lutar(jogador, inimigo, nomes, armas)
           console.linha(DIV)
           console.linha("")
           paragrafo(("%s tomba. Silêncio."):format(nomes.inimigo))
+          conceder_vitoria(jogador)
           console.pausar("    (Enter)")
           return "vitoria"
         end

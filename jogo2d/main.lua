@@ -1,7 +1,9 @@
 -- jogo2d/main.lua
 -- Versão 2D (LÖVE2D) do jogo. REAPROVEITA a lógica do protótipo de terminal
 -- (../jogo/core/) — o "cérebro" é o mesmo; aqui muda só a APRESENTAÇÃO (janela,
--- desenho, input). Placeholders por enquanto (retângulos no lugar de sprites).
+-- desenho, input). Sprites de personagem ainda são PLACEHOLDER (assets
+-- soltos, ver jogo2d/assets/sprites/) — trocar pelos definitivos é só
+-- substituir os PNGs lá, sem mexer neste arquivo.
 --
 -- Rodar:  love jogo2d       (a partir da pasta bobagem/)
 
@@ -17,6 +19,7 @@ local combate = require("core.combate")
 local teste = require("core.teste")
 local armas = require("data.armas")
 local formas = require("data.formas")
+local sprites = require("sprites")
 
 -- As feras que um lobisomem pode assumir a partir da forma humana (mesma
 -- lista de core/combate_ui.lua, pra não haver duas fontes da verdade).
@@ -61,6 +64,26 @@ function love.load()
   jogo.log = { "Um bandido se ergue diante de você." }  -- narração recente
   jogo.acabou = nil                 -- nil | "vitoria" | "morte" | "fuga"
   jogo.submenu = nil                -- não-nil = dentro do submenu de Habilidades
+
+  -- Sprites PLACEHOLDER (ver jogo2d/assets/sprites/) — trocar pelos
+  -- definitivos quando prontos, sem mexer no resto do código: só substituir
+  -- os arquivos em assets/sprites/*.png (mesmo nome, mesmo tamanho de quadro
+  -- em tira horizontal) ou ajustar a largura/altura aqui se o tamanho mudar.
+  -- ALTURA_TELA_PERSONAGEM é o alvo visual (mesma altura pros dois, apesar
+  -- de as folhas terem escalas de pixel bem diferentes entre si).
+  local ALTURA_TELA_PERSONAGEM = 160
+  local folha_jogador = sprites.folha("assets/sprites/jogador_idle.png", 16, 16)
+  local folha_inimigo = sprites.folha("assets/sprites/bandido_idle.png", 100, 100)
+  jogo.escala_jogador = ALTURA_TELA_PERSONAGEM / folha_jogador.altura
+  jogo.escala_inimigo = ALTURA_TELA_PERSONAGEM / folha_inimigo.altura
+  jogo.anim_jogador = sprites.animacao(folha_jogador, 6)
+  jogo.anim_inimigo = sprites.animacao(folha_inimigo, 6)
+end
+
+-- Avança as animações em loop (idle contínuo, independente do turno).
+function love.update(dt)
+  jogo.anim_jogador:atualizar(dt)
+  jogo.anim_inimigo:atualizar(dt)
 end
 
 -- Adiciona uma linha ao log (mantém as últimas 4).
@@ -268,15 +291,16 @@ function love.keypressed(tecla)
   end
 end
 
--- ---- Desenho (placeholders) ------------------------------------------------
+-- ---- Desenho ----------------------------------------------------------------
 function love.draw()
   local L, A = love.graphics.getDimensions()
 
-  -- Personagens: retângulos placeholder.
-  love.graphics.setColor(COR.inimigo)
-  love.graphics.rectangle("fill", L - 220, 80, 120, 160, 8, 8)
-  love.graphics.setColor(COR.jogador)
-  love.graphics.rectangle("fill", 100, 80, 120, 160, 8, 8)
+  -- Personagens: sprites PLACEHOLDER (ver comentário em love.load).
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(jogo.anim_inimigo.folha.imagem, jogo.anim_inimigo:quad_atual(),
+    L - 220, 80, 0, jogo.escala_inimigo, jogo.escala_inimigo)
+  love.graphics.draw(jogo.anim_jogador.folha.imagem, jogo.anim_jogador:quad_atual(),
+    100, 80, 0, jogo.escala_jogador, jogo.escala_jogador)
 
   -- Rótulos de estado (saúde secreta, sem número).
   love.graphics.setFont(FONTE_PEQ)

@@ -616,6 +616,72 @@ do
   ok(humano:sonhos_atual() == nil, "humano não tem Sonhos")
 end
 
+titulo("Conquistas: contador UNIVERSAL (toda raça acumula, mesmo quem não é mago)")
+do
+  local humano = ficha.nova({}, "humano")
+  ok(humano:conquistas_atual() == 0, "começa em 0")
+  humano:ganhar_conquista()
+  humano:ganhar_conquista()
+  ok(humano:conquistas_atual() == 2, "cada chamada soma 1 por padrão")
+  ok(humano:sonhos_atual() == nil, "humano não tem Sonhos pra conquista virar (sem raça pra receber)")
+
+  local lobo = ficha.nova({}, "lobisomem")
+  lobo:ganhar_conquista()
+  ok(lobo:conquistas_atual() == 1, "lobisomem também acumula, mesmo não usando pra nada ainda")
+end
+
+titulo("Sonhos iniciais do mago vêm do que já foi CONQUISTADO antes de virar mago")
+do
+  -- Sem conquistas -> preso no piso (SONHOS_INICIAL), como já era.
+  local mago_zero = ficha.nova({}, "mago")
+  ok(mago_zero:sonhos_atual() == 1, "sem conquistas, começa no piso (1)")
+
+  -- ficha.nova aceita attrs.conquistas (ex.: um humano que virou mago
+  -- carregando o que já tinha conquistado).
+  local mago_com_historico = ficha.nova({ conquistas = 5 }, "mago")
+  ok(mago_com_historico:sonhos_atual() == 5, "Sonhos inicial = conquistas acumuladas (5), acima do piso")
+
+  -- transformar_raca preserva o self.conquistas já existente na ficha (não é
+  -- um attrs novo) — simula o humano lutando/explorando ANTES de virar mago.
+  local personagem = ficha.nova({}, "humano")
+  personagem:ganhar_conquista()  -- matou o bandido, digamos
+  personagem:ganhar_conquista()  -- explorou algo
+  personagem:ganhar_conquista()  -- concluiu uma quest
+  ok(personagem:conquistas_atual() == 3, "3 conquistas acumuladas como humano")
+  personagem:transformar_raca("mago")
+  ok(personagem:sonhos_atual() == 3, "virou mago já com 3 Sonhos, herdados das conquistas de quando era humano")
+
+  -- Já sendo mago, uma conquista nova vira Sonhos NA HORA (não só no futuro).
+  personagem:ganhar_conquista()
+  ok(personagem:sonhos_atual() == 4, "conquista de mago já ativo soma direto no Sonhos atual")
+  ok(personagem:conquistas_atual() == 4, "contador universal segue subindo junto")
+end
+
+titulo("transformar_raca: vampiro e lobisomem NUNCA viram mago (ver lore.md)")
+do
+  local vampiro = ficha.nova({}, "vampiro")
+  local ok1, motivo1 = vampiro:transformar_raca("mago")
+  ok(ok1 == false, "vampiro não pode virar mago")
+  ok(motivo1 ~= nil, "recusa vem com motivo")
+  ok(vampiro.raca == "vampiro", "raça não muda numa recusa")
+
+  local lobo = ficha.nova({}, "lobisomem")
+  local ok2 = lobo:transformar_raca("mago")
+  ok(ok2 == false, "lobisomem não pode virar mago")
+  ok(lobo.raca == "lobisomem", "raça não muda numa recusa")
+
+  -- Humano continua podendo (o único caminho jogável hoje pra virar mago).
+  local humano = ficha.nova({}, "humano")
+  local ok3 = humano:transformar_raca("mago")
+  ok(ok3 == true, "humano pode virar mago")
+  ok(humano.raca == "mago", "raça muda numa transformação aceita")
+
+  -- Lobisomem -> vampiro (Abominação futura) continua permitido; não é essa
+  -- a regra restringida aqui.
+  local lobo2 = ficha.nova({}, "lobisomem")
+  ok(lobo2:transformar_raca("vampiro") == true, "lobisomem -> vampiro continua permitido")
+end
+
 titulo("Quebras: acumula, tem teto 10, pode reduzir (diferente de Corrupção)")
 do
   local mago = ficha.nova({}, "mago")
@@ -687,8 +753,31 @@ do
   local r = magia.conjurar(mago, feitico, rng_de_faces({1}))
   ok(r.conjurou == false, "deve falhar (total 6 < dif 15)")
   ok(r.falha_feia == true, "margem 9 > limiar 7 -> falha FEIA")
-  ok(r.quebras_ganhas == magia.quebras_por_falha(1), "quebras geradas devem bater com a fórmula (custo 1 -> 1)")
+  ok(r.quebras_ganhas == magia.quebras_por_falha(15), "quebras geradas devem bater com a fórmula (dif 15 -> 3)")
   ok(mago:quebras_atual() == r.quebras_ganhas, "ficha deve refletir as Quebras ganhas")
+end
+
+titulo("magia: sonhos_extra reduz a dificuldade, mas custa mais e reduz a própria base")
+do
+  local mago = ficha.nova({}, "mago")
+  mago:recarregar_sonhos(9)  -- Sonhos 10
+  -- custo 1 + sonhos_extra 2 = paga 3. Sonhos após pagar = 10-3 = 7.
+  -- base = 7 + vontade(5) = 12. dif efetiva = 20 - 2*2 = 16. face 1 -> bônus 0.
+  -- total = 12. 12 < 16 -> ainda falha (a dif começou alta de propósito).
+  local feitico = { nome = "Teste", custo = 1, dif = 20 }
+  local r = magia.conjurar(mago, feitico, rng_de_faces({1}), 2)
+  ok(r.sonhos_extra == 2, "resultado registra quanto foi pago a mais")
+  ok(r.dif == 16, "dif efetiva = 20 - (2 sonhos_extra * 2) = 16")
+  ok(mago:sonhos_atual() == 7, "pagou custo(1) + sonhos_extra(2) = 3 no total (10-3=7)")
+
+  -- Pagando sonhos_extra o suficiente, a dif efetiva pode até zerar/negativar
+  -- (garante sucesso) — sem teto, como confirmado.
+  local mago2 = ficha.nova({}, "mago")
+  mago2:recarregar_sonhos(99)
+  local feitico2 = { nome = "Teste2", custo = 1, dif = 10 }
+  local r2 = magia.conjurar(mago2, feitico2, rng_de_faces({1}), 10)
+  ok(r2.dif == 10 - 10 * 2, "dif efetiva pode ficar bem negativa (10 - 20 = -10)")
+  ok(r2.conjurou == true, "dif efetiva negativa garante sucesso mesmo com dado vacilando")
 end
 
 titulo("conceitos: mago aprende 1 a cada 2 níveis, gasta o crédito ao escolher")
@@ -721,20 +810,20 @@ do
   ok(select(1, humano:aprender_conceito("atrito")) == false, "humano não aprende conceitos")
 end
 
-titulo("fusão: soma pesos->custo e difs->dif, com penalidade por conceito extra")
+titulo("fusão: custo é SEMPRE 1; peso+dif somam na dificuldade, com penalidade por conceito extra")
 do
   -- Dois conceitos-tijolo de teste (formato de data/conceitos.lua).
   local atrito = { id = "atrito", nome = "Atrito", peso = 2, dif = 3, tags = { "cinetico" } }
   local acelerar = { id = "acelerar", nome = "Acelerar", peso = 3, dif = 4, tags = { "tempo", "cinetico" } }
 
-  -- Fusão de 1 conceito: sem penalidade (só o próprio peso/dif).
+  -- Fusão de 1 conceito: custo fixo, dif = peso+dif do próprio, sem penalidade.
   local m1 = magia.fundir({ atrito }, "Fricção")
-  ok(m1.custo == 2 and m1.dif == 3, "1 conceito: custo=peso, dif=dif, sem penalidade")
+  ok(m1.custo == magia.CUSTO_FUSAO and m1.dif == 2 + 3, "1 conceito: custo sempre fixo, dif=peso+dif, sem penalidade")
 
-  -- Fusão de 2 conceitos: soma + 1 de penalidade (1 conceito extra) em ambos.
+  -- Fusão de 2 conceitos: custo continua fixo; dif soma tudo + 1 de penalidade.
   local m2 = magia.fundir({ atrito, acelerar }, "Ignição por Fricção")
-  ok(m2.custo == 2 + 3 + 1, "2 conceitos: custo = Σpesos(5) + penalidade(1) = 6")
-  ok(m2.dif == 3 + 4 + 1, "2 conceitos: dif = Σdifs(7) + penalidade(1) = 8")
+  ok(m2.custo == magia.CUSTO_FUSAO, "2 conceitos: custo continua fixo, não escala")
+  ok(m2.dif == (2 + 3) + (3 + 4) + 1, "2 conceitos: dif = Σ(peso+dif)(12) + penalidade(1) = 13")
   ok(#m2.conceitos == 2, "registra os 2 conceitos que a compõem")
   ok(#m2.tags == 2, "tags únicas: cinetico, tempo (cinetico não duplica)")
 
@@ -762,7 +851,8 @@ do
   local nova = mago:fundir_magia({ "atrito", "fogo" }, "Chama Cinética", catalogo)
   ok(nova ~= nil, "funde conceitos conhecidos")
   ok(nova.nome == "Chama Cinética", "guarda o nome que o jogador deu")
-  ok(nova.custo == 2 + 4 + 1, "custo derivado do catálogo (2+4+penalidade 1 = 7)")
+  ok(nova.custo == magia.CUSTO_FUSAO, "custo sempre fixo, não importa o catálogo")
+  ok(nova.dif == (2 + 3) + (4 + 5) + 1, "dif derivada do catálogo (Σpeso+dif dos 2 + penalidade 1 = 14)")
   ok(#mago.magias_fundidas == 1, "a magia criada foi guardada na ficha")
 
   -- A magia fundida é conjurável pelo motor existente (mesmo formato).
@@ -792,6 +882,30 @@ do
   ok(p:attr("forca") == 3, "força definida deve ser 3")
   ok(p:attr("carisma") == 2, "atributo não informado deve assumir 2 (humano comum)")
   ok(p:pericia("intimidacao") == 0, "perícia nunca usada deve ser 0")
+end
+
+titulo("Perícia: sobe por uso, com grind próprio por perícia (data/pericias.lua)")
+do
+  local p = ficha.nova({}, "humano")
+  -- intimidacao tem grind=2 no catálogo (data/pericias.lua).
+  ok(p:usar_pericia("intimidacao") == false, "1º uso não sobe ainda (grind 2)")
+  ok(p:pericia("intimidacao") == 0, "nível continua 0 no meio do grind")
+  ok(p:usar_pericia("intimidacao") == true, "2º uso bate o grind -> sobe")
+  ok(p:pericia("intimidacao") == 1, "nível sobe pra 1")
+  ok(p:usar_pericia("intimidacao") == false, "contador zerou, precisa de outro ciclo completo")
+  ok(p:usar_pericia("intimidacao") == true, "mais 1 uso completa o 2º ciclo")
+  ok(p:pericia("intimidacao") == 2, "nível sobe pra 2")
+
+  -- Perícia fora do catálogo usa o padrão (ficha.PERICIA_USOS_PADRAO = 5).
+  local q = ficha.nova({}, "humano")
+  for i = 1, ficha.PERICIA_USOS_PADRAO - 1 do
+    q:usar_pericia("furtividade")
+  end
+  ok(q:pericia("furtividade") == 0, "ainda não bateu o padrão")
+  q:usar_pericia("furtividade")
+  ok(q:pericia("furtividade") == 1, "bateu o padrão (5 usos) -> sobe 1")
+
+  ok(ficha.nova({}, "humano"):usar_pericia(nil) == false, "usar_pericia(nil) não quebra, só recusa")
 end
 
 titulo("tempo: relógio soma custos e é reiniciável")
@@ -839,6 +953,17 @@ do
   ok(r.tipo == "total", "ataque 7 vs def 3: TOTAL")
   -- dano total = base(2) + margem(7-3=4) + atributo(5) = 11
   ok(r.dano == 2 + 4 + 5, "dano total = base+margem+atributo (2+4+5=11), veio " .. r.dano)
+end
+
+titulo("combate: todo ataque exercita a perícia da arma (mesmo num erro)")
+do
+  local armas = require("data.armas")
+  local atk = ficha.nova({ agilidade = 0 }, "humano")
+  ok(atk:pericia("esgrima") == 0, "começa sem nível em esgrima")
+  -- esgrima tem grind=12 (data/pericias.lua) — 1 ataque não sobe ainda.
+  combate.atacar(atk, ficha.nova({}, "humano"), armas.adaga, rng_de_faces({1}))  -- ERRO garantido
+  ok(atk:pericia("esgrima") == 0, "1 uso não bate o grind (12), mas já contou")
+  ok(atk.pericias_uso.esgrima == 1, "contador de uso registrou mesmo com ataque ERRO")
 end
 
 titulo("combate: regeneração por raça (modo)")

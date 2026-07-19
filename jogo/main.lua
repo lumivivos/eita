@@ -13,6 +13,7 @@ local armas = require("data.armas")
 local combate_ui = require("core.combate_ui")
 local masmorra = require("core.masmorra")
 local dado = require("core.dado")
+local niveis = require("core.niveis")
 
 console.preparar()
 
@@ -190,6 +191,11 @@ local function main()
     if saida == "preso" then
       rota_vampirismo(jogador)
     else
+      -- Escapar é a primeira "exploração" real do jogo: conta EXP + 1
+      -- conquista (ver sistemas.md > Progressão / Sonhos). Preso não conta
+      -- — virar vampiro à força não é uma conquista do jogador.
+      jogador:ganhar_exp(niveis.EXP_EXPLORACAO_COMUM)
+      jogador:ganhar_conquista()
       tentar_sonhos(jogador)
     end
   end

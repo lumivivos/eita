@@ -352,7 +352,7 @@ Rastreio, Escalada, Mentira...). Entram no teste como
 **Regras definidas:**
 - **Perícia ≠ poder de raça.** Uma perícia depende apenas de ter um corpo humanoide +
   um cérebro funcional. NÃO é superpoder, NÃO depende de fisiologia especial. Virar
-  vampiro/mago/lobisomem **não** concede perícias novas — concede *disciplinas/recursos
+  vampiro/mago/lobisomem **não** concede perícias novas — concede *estigmas/recursos
   de raça*, que são um sistema SEPARADO (ver 5). Suas perícias continuam sendo suas,
   humanas, independentes do que você virou.
 - **Lista curada, porém INVISÍVEL ao jogador.** O motor conhece um conjunto fechado de
@@ -415,11 +415,11 @@ porque dominar uma arma é ofício de anos). O grind reflete o realismo de cada 
 
 **Inteligência**
 - Ciência — método/empirismo; raro e valioso num mundo medieval.
-- Ocultismo — conhecimento das verdades ocultas do mundo (vampiros, linhagens, Caim,
+- Ocultismo — conhecimento das verdades ocultas do mundo (vampiros, círculos, Caim,
   deuses-conceito, o All-Being...). Saber a lore proibida. Poderoso e perigoso.
 - Alquimia — poções, venenos, transmutação.
-- Medicina — tratar ferimentos pela via HUMANA (cura sobrenatural é rara — era a
-  disciplina extinta dos Sanatio; ver lore.md). O jeito mundano de curar.
+- Medicina — tratar ferimentos pela via HUMANA (cura sobrenatural é rara — era o
+  estigma extinto dos Sanatio; ver lore.md). O jeito mundano de curar.
 - Investigação — juntar pistas, deduzir, notar o que está errado.
 
 **Força de Vontade** — NÃO tem habilidades. É um atributo passivo/especial: define-se
@@ -443,7 +443,7 @@ Atributos secundários) — o recurso é o que você gasta pra fazer coisas, o p
 **Escala do lado "recurso" (Sangue, Sonhos, Fúria, Ego):** mesma régua 0–10 dos
 atributos gerais, MAS com um teto que pode ser menor que 10 dependendo do
 indivíduo (ex.: um vampiro de geração baixa/"ralé" pode ter Sangue máximo 2,
-não 10 — o teto varia por geração/linhagem, não é fixo pra raça inteira).
+não 10 — o teto varia por geração/círculo, não é fixo pra raça inteira).
 Exceção: **Ego não segue essa lógica.** Não é treinado nem tem teto variável —
 todo Abominação **começa direto no 10** (é o poder mais forte que existe; não
 faz sentido ele "subir").
@@ -539,7 +539,7 @@ de fato ainda — isso é requisito futuro).
 - Ainda não ligado a nenhuma UI (console/jogo2d) — só motor + testes, seguindo
   o fluxo de sempre.
 
-### Sangue, Geração & Disciplinas gerais (Vampiro) — implementado (esqueleto)
+### Sangue, Geração & Estigmas gerais (Vampiro) — implementado (esqueleto)
 
 - **Teto sempre 10**, igual aos atributos gerais — **geração NÃO reduz o teto**
   pro jogador (só Caim e os Iluminados da Sanatio escapam da régua 0-10 de
@@ -577,7 +577,7 @@ de fato ainda — isso é requisito futuro).
   `entrar_frenesi`). O gatilho de "dia" real ainda não existe (sem
   calendário/lua); só o mecanismo (`passar_dia`) está pronto.
 
-**Disciplinas gerais** (todo vampiro tem as 3; ver `lore.md` > Vampiros):
+**Estigmas gerais** (todo vampiro tem os 3; ver `lore.md` > Vampiros):
 - 🌀 **Dominatio — IMPLEMENTADA (versão mínima: stun básico).** Ataque mental
   pelo olhar (`core/dominatio.lua:tentar`, espelha combate.lua/magia.lua).
   Custa **1 Sangue fixo** por tentativa (gasta mesmo se falhar ou for
@@ -594,7 +594,7 @@ de fato ainda — isso é requisito futuro).
   força animadora que TODO ser tem (não é alma, mas parecido — sem ela, é só
   carne). **Valor universal = 10, igual em todos** (`ficha.BESTA_INICIAL`;
   não é fonte de poder — a diferença vem dos atributos). Zerá-la = "só carne"
-  (`ficha:so_carne`; efeito de morte/catatonia ⚪). A disciplina Besta (só
+  (`ficha:so_carne`; efeito de morte/catatonia ⚪). O estigma Besta (só
   vampiro) manipula a Besta com três verbos:
   - **Acalmar — IMPLEMENTADO** (`ficha:acalmar_besta`): gasta **1 Sangue** e
     dá **IMUNIDADE total ao Frenesi por 3 turnos** (mesmo com Sangue 0 — ver
@@ -677,7 +677,7 @@ implementado ainda, decisão consciente de adiar até esse conteúdo existir.
     armadura temporária: não muda se te acertam, só quanto dói), não mais
     dano. É essa dualidade (ataque puro nos níveis baixos, ataque+defesa nos
     altos) que diferencia Fúria de Sangue — Sangue é recurso
-    controlado/administrado (geração, disciplinas), Fúria é aposta com risco
+    controlado/administrado (geração, estigmas), Fúria é aposta com risco
     real (Frenesi) e a decisão de "quanto arriscar" a cada ativação.
   - O -1 de acerto reduz a MARGEM (que entra no dano total) — o efeito
     líquido no dano geralmente é um pouco menor que o bônus bruto da tabela,
@@ -722,25 +722,50 @@ implementado ainda, decisão consciente de adiar até esse conteúdo existir.
   > Magos). **Sem teto** (diferente de Sangue/Fúria), mas **nunca abaixo de
   1** (`ficha.SONHOS_MINIMO`) — o mago não "seca" de vez. Começa em **1**.
   `ficha:gastar_sonhos` / `ficha:recarregar_sonhos` / `ficha:sonhos_atual`.
+- **Sobe por CONQUISTAS — não recarrega passivamente.** Matar algo, explorar,
+  completar quest, etc. Cada conquista vale **exatamente 1** de Sonhos,
+  independente de quanto EXP aquele mesmo evento também conceda (EXP e
+  conquista são contadores separados — Sonhos fica numa escala pequena e
+  densa, não herda a escala grande do EXP). `ficha:ganhar_conquista`.
+- **Conquistas são UNIVERSAIS — toda raça acumula, mesmo quem nunca vira
+  mago.** `self.conquistas` existe em toda ficha (humano, lobisomem, vampiro
+  incluídos), mesmo sem uso nenhum pras raças que não são mago. Isso resolve
+  o "mago nível 1 sem nada pra gastar": o que já foi conquistado ANTES de
+  virar mago (lutando, explorando, etc. como humano/lobisomem) vira o Sonhos
+  inicial do mago no momento da transformação (`transformar_raca`/
+  `ficha.nova` com `attrs.conquistas`) — `sonhos_inicial = max(SONHOS_INICIAL,
+  conquistas)`. Ecoa `lore.md` > Magos: os Sonhos já observam quem é apto
+  antes da própria pessoa saber. Se JÁ é mago, uma conquista nova vira Sonhos
+  na hora, não só no futuro. Um personagem que nunca conquistou nada antes de
+  virar mago (ou nunca conquista nada depois) fica preso exatamente no piso
+  (1) — sem conseguir pagar nem a magia mais barata; é o preço de não ter
+  vivido nada ainda.
 
 ### Quebras (Mago) — implementado (esqueleto do motor; conteúdo dos debuffs ⚪)
 
 - **Sobe em FALHA FEIA de conjuração** (`core/magia.lua:conjurar`) — não é
-  qualquer falha. Fórmula do teste: `sonhos_atual (DEPOIS de pagar o custo)
-  + vontade + 1d3`, comparado com a `dif` da magia. Falha = resultado < dif.
-  - **INTENCIONAL: magia cara é mais difícil de acertar.** Como o Sonhos que
-    SOBRA (pós-custo) entra no teste, gastar muito te deixa "no limite" e
-    derruba a própria chance. Somado ao fato de que falha feia de magia cara
-    gera MAIS Quebras, a magia poderosa pune duas vezes (difícil de acertar +
-    dói mais ao errar). É a lore em mecânica ("quanto maior o rasgo, mais a
-    realidade cobra") e premia o mago comedido — que acumula Sonhos antes da
-    magia grande — em vez do afoito (ecoa "os melhores magos usam magia de
-    forma mínima").
-  **Falha FEIA** = errou por MAIS que metade da dificuldade (arredondada pra
-  baixo) — errar por pouco ("quase passei") não gera Quebras.
-- **Quantidade de Quebras por falha feia escala com o CUSTO da magia**, em
-  degraus de 5 (`magia.quebras_por_falha`): custo 1-5 → 1 Quebra; 6-10 → 2;
-  11-15 → 3; sucessivamente. Magia mais cara falhada dói mais.
+  qualquer falha. Fórmula do teste: `sonhos_atual (DEPOIS de pagar custo +
+  sonhos_extra) + vontade + 1d3`, comparado com a `dif` EFETIVA da magia
+  (ver "Toda magia custa 1 Sonho" logo abaixo). Falha = resultado < dif efetiva.
+  - **INTENCIONAL: magia ambiciosa é mais difícil de acertar.** Como o Sonhos
+    que SOBRA (pós-pagamento) entra no teste, gastar muito (inclusive
+    `sonhos_extra`) deixa "no limite" e derruba a própria chance — ao mesmo
+    tempo que pagar `sonhos_extra` reduz a meta a bater. É uma aposta de dois
+    gumes de propósito. Somado ao fato de que falha feia de magia difícil
+    gera MAIS Quebras, a magia ambiciosa pune múltiplas vezes. É a lore em
+    mecânica ("quanto maior o rasgo, mais a realidade cobra") e premia o mago
+    comedido em vez do afoito (ecoa "os melhores magos usam magia de forma
+    mínima").
+  **Falha FEIA** = errou por MAIS que metade da dificuldade EFETIVA
+  (arredondada pra baixo) — errar por pouco ("quase passei") não gera Quebras.
+- **Quantidade de Quebras por falha feia escala com a DIFICULDADE ORIGINAL da
+  magia** (`feitico.dif`, antes de qualquer redução por `sonhos_extra`), em
+  degraus de 5 (`magia.quebras_por_falha`): dif 1-5 → 1 Quebra; 6-10 → 2;
+  11-15 → 3; sucessivamente, SEM TETO — uma fusão muito ambiciosa (dif alta,
+  já que o custo nunca escala — ver abaixo) que falha feio pode gerar Quebras
+  suficientes pra matar o mago na hora (Cemitério dos Sonhos). Pagar
+  `sonhos_extra` não compra desconto nesse número: melhora a chance de
+  acertar, não o tamanho da queda se ainda assim falhar.
 - **Pode DESCER com o tempo** (`ficha:reduzir_quebras`), diferente da
   Corrupção (que só sobe) — se o mago passa um tempo sem tomar Quebras
   novas, ela se reduz sozinha (taxa/gatilho exatos ⚪, só o mecanismo existe).
@@ -761,10 +786,28 @@ implementado ainda, decisão consciente de adiar até esse conteúdo existir.
 ### `core/magia.lua` e `data/magias.lua` — motor pronto, conteúdo em aberto
 
 `core/magia.lua` resolve uma conjuração (espelha `core/combate.lua`):
-`magia.conjurar(conjurador, feitico, rng)` devolve se conjurou, se foi falha
-feia, e quantas Quebras gerou (já aplicadas na ficha). `data/magias.lua` é o
-catálogo data-driven (`nome`, `custo`, `dif` por magia) — **propositalmente
-vazio**, o conteúdo das magias é criativo e fica por conta de quem escreve.
+`magia.conjurar(conjurador, feitico, rng, sonhos_extra)` devolve se conjurou,
+se foi falha feia, e quantas Quebras gerou (já aplicadas na ficha).
+`data/magias.lua` é o catálogo data-driven (`nome`, `custo`, `dif` por magia)
+— **propositalmente vazio**, o conteúdo das magias é criativo e fica por
+conta de quem escreve.
+
+**Toda magia custa 1 Sonho — sempre, sem exceção** (`magia.CUSTO_FUSAO = 1`).
+Não importa quantos conceitos entrem numa fusão nem quão ambiciosa seja: o
+preço de "pedir demais" nunca aparece no custo — aparece inteiro na
+DIFICULDADE. É o que faz o mago "armadilha": tentar qualquer coisa é barato,
+mas fundir/tentar algo grande demais pode ter uma dificuldade praticamente
+impossível de bater, sem limite superior.
+
+**`sonhos_extra` — pagar mais pra reduzir a dificuldade.** Na hora de
+conjurar (não na fusão), o mago pode escolher pagar Sonhos ADICIONAIS além do
+custo fixo. Cada ponto extra reduz a dificuldade em **2**
+(`magia.REDUCAO_DIF_POR_SONHO_EXTRA`), sem teto — o mago pode sempre forçar o
+acerto, contanto que tenha Sonhos (que não têm teto). Mas isso empurra em
+direção OPOSTA à regra do Sonhos-que-sobra-entra-na-base: pagar mais Sonhos
+extra melhora a meta a bater, e ao mesmo tempo piora sua própria rolagem
+(sobra menos Sonhos pra somar na base). Força bruta tem preço nos dois lados
+da conta, de propósito — não é um botão de "sempre acerte" de graça.
 
 ### Conceitos & Fusão (Spellmaking) 🟢 (motor pronto; conceitos ⚪)
 
@@ -775,27 +818,42 @@ do universo — "manipular o atrito", "endurecer a matéria"...) e, meditando,
 seleção — infinitamente combinável.
 
 - **Sem escola de magia.** Qualquer mago pode fundir qualquer coisa que tenha
-  aprendido. O único limite é: ter os conceitos + ter Sonhos pra pagar (e o
-  risco de Quebras se falhar feio). Nada de "escola de fogo/gelo".
+  aprendido. O único limite é: ter os conceitos aprendidos (o custo em Sonhos
+  é sempre 1, fixo — ver acima) — o risco real é a DIFICULDADE, não o custo.
+  Nada de "escola de fogo/gelo".
 - **Conceitos são raros e permanentes.** O mago ganha **1 crédito de conceito
   a cada 2 níveis** (`ficha.CONCEITO_A_CADA_N_NIVEIS`; só em nível par).
   Escolher QUAL conceito aprender é decisão do jogador — cada escolha molda
   quem ele é como mago ("cada coisa importa"). Nasce sabendo NADA.
 - **Conceito = tijolo com parâmetros** (`data/conceitos.lua`): cada um tem
-  `peso` (contribuição ao CUSTO em Sonhos) e `dif` (contribuição à DIFICULDADE
-  do teste), mais `tags` opcionais (categorias pra sinergias futuras).
-- **Fusão** (`core/magia.fundir`): soma os `peso`s → custo, soma os `dif`s →
-  dificuldade, e adiciona **+1 de instabilidade por conceito extra** (o 1º não
-  penaliza; fundir muita coisa é mais caro E mais difícil — cada tijolo a mais
-  desestabiliza). Devolve uma magia no MESMO formato que `magia.conjurar` já
-  entende — a magia fundida é conjurada como qualquer outra, com Sonhos/Quebras
-  ligados. O jogador dá o **nome** à criação.
+  `peso` e `dif`, e os DOIS somam na DIFICULDADE do teste (não existe mais
+  custo variável — ver "Toda magia custa 1 Sonho" acima). `peso` e `dif` são
+  dois números separados só por clareza de autoria (um descreve "quão bruta é
+  a força", o outro "quão difícil é controlá-la"), mas mecanicamente somam no
+  mesmo lugar. Mais `tags` opcionais (categorias pra sinergias futuras).
+- **Conceitos são MOLDES ABERTOS, não efeitos fixos.** O `peso`/`dif` no
+  catálogo é o BASE de um uso simples e pequeno (esquentar uma xícara, atrair
+  um prego). O efeito exato de uma magia específica (bola de fogo vs.
+  incendiar um campo inteiro) é decidido por quem FUNDE — quanto mais
+  ambicioso o efeito desejado (mais alcance, mais dano, mais alvos), maior
+  deve ser a `dif` daquela magia específica, ajustada à mão pelo autor por
+  cima do que `magia.fundir` calcula.
+- **Fusão** (`core/magia.fundir`): soma `peso`s + `dif`s de todos os
+  conceitos → dificuldade total, e adiciona **+1 de instabilidade por
+  conceito extra** (o 1º não penaliza; fundir muita coisa é só mais difícil
+  agora, já que o custo nunca escala — cada tijolo a mais desestabiliza).
+  Devolve uma magia no MESMO formato que `magia.conjurar` já entende — a
+  magia fundida é conjurada como qualquer outra, com Sonhos/Quebras ligados.
+  O jogador dá o **nome** à criação.
 - **A magia fundida é SALVA na ficha** (`ficha.magias_fundidas` via
   `ficha:fundir_magia`): medita uma vez, reconjura sempre. Recompensa
   planejamento (acumular conceitos certos → criar a magia certa).
-- Só o mago tem conceitos/fusão. `data/conceitos.lua` está **propositalmente
-  vazio** — QUAIS são os ~10 conceitos é trabalho criativo de quem escreve; o
-  motor funciona com qualquer conceito que siga o formato.
+- Só o mago tem conceitos/fusão. `data/conceitos.lua` já tem os 3 primeiros
+  implementados (**Temperatura, Magnetismo, Gravidade** — peso 1/dif 3 cada,
+  moldes abertos como descrito acima). Os outros ~7 planejados (Átomo/nuclear,
+  Espaço, Vida, Probabilidades, Tempo, Vácuo, Fótons) ainda ⚪ — Átomo e Tempo
+  de propósito adiados (alto risco/escala e interação com `core/tempo.lua`,
+  respectivamente; ver comentário no topo de `data/conceitos.lua`).
 - **A definir ⚪:** se o ato de *meditar/fundir* custa algo (tempo/turno/foco).
   Hoje é livre. Se quiser dar peso narrativo, é um ajuste pequeno.
 
@@ -933,7 +991,10 @@ ficha JÁ EXISTENTE pra outra raça, preservando tudo que o personagem já é
 a raça muda, e com ela os recursos específicos dela são iniciados do zero
 (mesma lógica de `ficha.nova`, extraída pra uma função interna reaproveitada
 pelas duas). Bate com a nota de `data/racas.lua`: vampiro/mago não são
-pontos de partida, só destinos.
+pontos de partida, só destinos. **Recusa a transformação (false + motivo) se
+o destino for "mago" e a raça atual já for vampiro ou lobisomem** — os
+Sonhos só buscam quem ainda é humano (ver `lore.md` > Raças); virar mago só
+é possível a partir de humano.
 
 **Primeira demo jogável ponta a ponta, sem lore ainda** (`main.lua`):
 origem (monstro/homem) → se homem, masmorra (tutorial de fuga, ver seção

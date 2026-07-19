@@ -1,5 +1,5 @@
 -- core/dominatio.lua
--- Resolução da disciplina Dominatio (ver sistemas.md > Disciplinas gerais).
+-- Resolução do estigma Dominatio (ver sistemas.md > Estigmas gerais).
 -- Ataque mental: comandar/dominar a mente de outrem pelo olhar. Versão
 -- MÍNIMA — só um stun básico; profundidade (comandos de verdade, resistência
 -- graduada) fica pra depois. Lógica pura, sem UI — espelha core/combate.lua

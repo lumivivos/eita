@@ -11,6 +11,13 @@ local niveis = {}
 
 niveis.MAX = 10
 
+-- EXP concedido por eventos comuns do jogo (ver faixas de referência acima).
+-- PROVISÓRIO — valores no chão de cada faixa citada; fácil de ajustar depois
+-- de jogar. `combate_ui.lua` e `main.lua` chamam essas constantes ao invés de
+-- valores soltos, pra manter a economia de EXP num lugar só.
+niveis.EXP_COMBATE_COMUM = 5
+niveis.EXP_EXPLORACAO_COMUM = 20
+
 -- EXP necessário pra ir do nível N ao N+1 (custo do DEGRAU).
 -- Começa em 100 e o incremento sobe +50 a cada degrau:
 --   2:100, 3:250(+150), 4:450(+200), 5:700(+250), ... 10:2700.

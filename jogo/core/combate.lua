@@ -28,6 +28,13 @@ function combate.atacar(atacante, alvo, arma, rng)
 
   local atributo = atacante:attr(arma.atributo)
   local pericia = atacante:pericia(arma.pericia)
+  -- Todo ataque EXERCITA a perícia da arma usada, mesmo num erro (ver
+  -- sistemas.md > Perícias: "cada uso... faz progredir", não só sucesso).
+  -- Lê o nível ANTES daqui (linha acima) — o uso registrado agora só conta
+  -- pro próximo ataque.
+  if atacante.usar_pericia then
+    atacante:usar_pericia(arma.pericia)
+  end
   local bonus, face = dado.rolar(rng)
   -- Bônus de forma (0 pra quem não transforma). Acerto soma no teste; dano no dano.
   local acerto_forma = atacante.bonus_acerto_forma and atacante:bonus_acerto_forma() or 0

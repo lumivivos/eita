@@ -2,7 +2,7 @@
 -- Demonstração jogável do combate como VAMPIRO (isolada do jogo principal).
 -- Rode pelo launcher pra ter acentos, ou:  lua demo_combate_vampiro.lua
 --
--- Pensada pra exercitar as 3 disciplinas gerais no menu Habilidades:
+-- Pensada pra exercitar os 3 estigmas gerais no menu Habilidades:
 --   Elevação  — buff físico temporário (custa Sangue)
 --   Dominatio — tenta atordoar o inimigo (custa Sangue)
 --   Besta     — acalmar, dá folga contra o Frenesi (custa Sangue)
